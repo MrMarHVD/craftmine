@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { BLOCKS, FACE } from "./blocks.js";
 
 const TILE = 16;
-const ATLAS_COLS = 4;
+const ATLAS_COLS = 6;
 const TILES = [
   "grass_top",
   "grass_side",
@@ -14,6 +14,14 @@ const TILES = [
   "leaves",
   "water",
   "bedrock",
+  "snow",
+  "cactus_side",
+  "cactus_top",
+  "flower_red",
+  "flower_yellow",
+  "vine",
+  "gravel",
+  "moss",
 ];
 
 function withNoise(ctx, baseColor, variance = 12, alpha = 1) {
@@ -73,6 +81,49 @@ function drawTile(tile) {
     ctx.fillStyle = "rgba(96,96,96,0.32)";
     for (let i = 0; i < 24; i++) {
       ctx.fillRect((Math.random() * TILE) | 0, (Math.random() * TILE) | 0, 1, 1);
+    }
+  } else if (tile === "snow") {
+    withNoise(ctx, [230, 238, 244], 9);
+    ctx.fillStyle = "rgba(188, 206, 220, 0.4)";
+    for (let i = 0; i < TILE; i += 3) ctx.fillRect(i, (i * 5) % TILE, 1, 1);
+  } else if (tile === "cactus_side") {
+    withNoise(ctx, [54, 146, 66], 15);
+    ctx.fillStyle = "rgba(36,98,44,0.42)";
+    for (let x = 1; x < TILE; x += 3) ctx.fillRect(x, 0, 1, TILE);
+  } else if (tile === "cactus_top") {
+    withNoise(ctx, [70, 152, 80], 14);
+    ctx.fillStyle = "rgba(35,93,42,0.6)";
+    ctx.fillRect(3, 3, TILE - 6, TILE - 6);
+  } else if (tile === "flower_red") {
+    ctx.clearRect(0, 0, TILE, TILE);
+    ctx.fillStyle = "rgba(56,144,62,0.85)";
+    ctx.fillRect(7, 5, 2, 11);
+    ctx.fillStyle = "rgba(196,34,44,0.92)";
+    ctx.fillRect(5, 2, 6, 4);
+  } else if (tile === "flower_yellow") {
+    ctx.clearRect(0, 0, TILE, TILE);
+    ctx.fillStyle = "rgba(56,146,64,0.85)";
+    ctx.fillRect(7, 5, 2, 11);
+    ctx.fillStyle = "rgba(242,199,44,0.92)";
+    ctx.fillRect(5, 2, 6, 4);
+  } else if (tile === "vine") {
+    ctx.clearRect(0, 0, TILE, TILE);
+    ctx.fillStyle = "rgba(48,128,52,0.72)";
+    for (let i = 0; i < 6; i++) {
+      const x = 2 + ((i * 5) % 12);
+      ctx.fillRect(x, 1 + i * 2, 2, 3);
+    }
+  } else if (tile === "gravel") {
+    withNoise(ctx, [132, 128, 121], 22);
+    ctx.fillStyle = "rgba(88,84,81,0.25)";
+    for (let i = 0; i < 16; i++) {
+      ctx.fillRect((Math.random() * TILE) | 0, (Math.random() * TILE) | 0, 1, 1);
+    }
+  } else if (tile === "moss") {
+    withNoise(ctx, [80, 126, 64], 18);
+    ctx.fillStyle = "rgba(36,74,30,0.18)";
+    for (let i = 0; i < 16; i++) {
+      ctx.fillRect((Math.random() * TILE) | 0, (Math.random() * TILE) | 0, 2, 1);
     }
   }
 

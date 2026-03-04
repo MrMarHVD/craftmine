@@ -113,3 +113,63 @@ body {
   box-shadow: 0 0 12px rgba(255, 222, 138, 0.55);
   color: #fff9d8;
 }
+
+#inventory {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(620px, 92vw);
+  background: rgba(12, 18, 24, 0.88);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  display: none;
+  pointer-events: auto;
+}
+
+#inventory.visible {
+  display: block;
+}
+
+#inventory-title {
+  font-size: 15px;
+  margin-bottom: 10px;
+  color: #f5f7fa;
+}
+
+#inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.inv-slot {
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px;
+  color: #d8e1ea;
+  line-height: 1.2;
+  user-select: none;
+  cursor: pointer;
+}
+
+.inv-slot.active {
+  border-color: #ffde8a;
+  color: #fff5c4;
+  box-shadow: 0 0 8px rgba(255, 222, 138, 0.45);
+}
+
+@media (max-width: 760px) {
+  #inventory-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}

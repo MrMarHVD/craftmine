@@ -39,7 +39,41 @@ const world = new World(scene, atlas, worldSeed);
 world.setupMaterials(matOpaque, matTransparent);
 
 const player = new Player(camera, canvas);
-const ui = new UI([BlockId.GRASS, BlockId.DIRT, BlockId.STONE, BlockId.SAND, BlockId.LOG, BlockId.LEAVES, BlockId.WATER]);
+
+const inventory = [
+  { id: BlockId.GRASS, count: 64 },
+  { id: BlockId.DIRT, count: 64 },
+  { id: BlockId.STONE, count: 64 },
+  { id: BlockId.SAND, count: 64 },
+  { id: BlockId.LOG, count: 64 },
+  { id: BlockId.LEAVES, count: 64 },
+  { id: BlockId.CACTUS, count: 32 },
+  { id: BlockId.SNOW, count: 64 },
+  { id: BlockId.MOSS, count: 48 },
+  { id: BlockId.GRAVEL, count: 64 },
+  { id: BlockId.FLOWER_RED, count: 32 },
+  { id: BlockId.FLOWER_YELLOW, count: 32 },
+  { id: BlockId.VINE, count: 48 },
+  { id: BlockId.WATER, count: 32 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.AIR, count: 0 },
+];
+
+const ui = new UI(inventory);
 ui.setHotbarSelection(0);
 
 const dir = new THREE.Vector3();
@@ -52,6 +86,15 @@ scene.add(targetBox);
 
 let selectedIndex = 0;
 let currentTarget = null;
+
+function isInventoryOpen() {
+  return ui.isInventoryOpen();
+}
+
+function refreshOverlayVisibility() {
+  const locked = document.pointerLockElement === canvas;
+  ui.setOverlayVisible(!locked && !isInventoryOpen());
+}
 
 function getGroundY(x, z) {
   for (let y = 127; y >= 1; y--) {
@@ -75,25 +118,38 @@ window.addEventListener("resize", resize);
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 canvas.addEventListener("click", () => {
+  if (isInventoryOpen()) return;
   if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
 });
 
 document.addEventListener("pointerlockchange", () => {
-  ui.setOverlayVisible(document.pointerLockElement !== canvas);
+  refreshOverlayVisibility();
 });
 
 window.addEventListener("wheel", (e) => {
-  if (document.pointerLockElement !== canvas) return;
+  if (document.pointerLockElement !== canvas || isInventoryOpen()) return;
   selectedIndex += e.deltaY > 0 ? 1 : -1;
-  if (selectedIndex < 0) selectedIndex = ui.hotbarBlocks.length - 1;
-  if (selectedIndex >= ui.hotbarBlocks.length) selectedIndex = 0;
+  if (selectedIndex < 0) selectedIndex = ui.hotbarSize - 1;
+  if (selectedIndex >= ui.hotbarSize) selectedIndex = 0;
   ui.setHotbarSelection(selectedIndex);
 });
 
 window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyE") {
+    if (isInventoryOpen()) {
+      ui.setInventoryVisible(false);
+      canvas.requestPointerLock();
+    } else {
+      ui.setInventoryVisible(true);
+      document.exitPointerLock();
+    }
+    refreshOverlayVisibility();
+    return;
+  }
+
   if (/Digit[1-9]/.test(e.code)) {
     const i = Number(e.code.slice(-1)) - 1;
-    if (i >= 0 && i < ui.hotbarBlocks.length) {
+    if (i >= 0 && i < ui.hotbarSize) {
       selectedIndex = i;
       ui.setHotbarSelection(selectedIndex);
     }
@@ -120,7 +176,7 @@ function canPlaceAt(x, y, z) {
 }
 
 window.addEventListener("mousedown", (e) => {
-  if (document.pointerLockElement !== canvas) return;
+  if (document.pointerLockElement !== canvas || isInventoryOpen()) return;
   if (!currentTarget) return;
 
   if (e.button === 0) {
@@ -135,7 +191,8 @@ window.addEventListener("mousedown", (e) => {
     if (world.getBlock(placeX, placeY, placeZ) !== BlockId.AIR) return;
     if (!canPlaceAt(placeX, placeY, placeZ)) return;
 
-    const placeId = ui.hotbarBlocks[selectedIndex];
+    const placeId = ui.getSelectedBlock();
+    if (placeId === BlockId.AIR || placeId === BlockId.BEDROCK) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
   }
 });
@@ -149,7 +206,9 @@ function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
 
-  player.update(world, dt);
+  if (!isInventoryOpen()) {
+    player.update(world, dt);
+  }
 
   chunkTick += dt;
   if (chunkTick >= 0.14) {
@@ -162,7 +221,7 @@ function tick(now) {
 
   camera.getWorldDirection(dir);
   currentTarget = voxelRaycast(world, camera.position, dir, REACH_DISTANCE);
-  if (currentTarget) {
+  if (currentTarget && !isInventoryOpen()) {
     targetBox.visible = true;
     targetBox.position.set(currentTarget.x + 0.5, currentTarget.y + 0.5, currentTarget.z + 0.5);
   } else {
@@ -185,4 +244,5 @@ function tick(now) {
 }
 
 world.loadChunksAround(player.position.x, player.position.z);
+refreshOverlayVisibility();
 requestAnimationFrame(tick);

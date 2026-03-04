@@ -3,8 +3,14 @@
 Standalone browser voxel engine implemented with custom world/chunk generation, meshing, physics, controls, and interaction logic.
 
 ## Biomes Implemented
-- Forest (required): grass terrain, moderate hills, procedural trees (log + leaves)
-- Desert (candidate choice): sand terrain, lower vegetation density, dune-like elevations
+- Forest: grass terrain, rolling hills, dense trees, wild flowers
+- Desert: dunes, cactus clusters, gravel outcrops
+- Jungle: humid terrain, tall jungle trees, hanging vines, moss patches, flowers
+- Mountain: tall procedural mountain ranges, rocky spires, snow caps
+- Plains: flatter grasslands, frequent flower fields, sparse trees
+- Tundra: cold snow surface, sparse scrub/rocky patches
+
+Biome boundaries are generated using a climate blend (temperature + moisture noise fields), so transitions are smooth and not straight-line cuts.
 
 ## Tech Stack
 - Rendering: Three.js (WebGL)
@@ -43,20 +49,23 @@ npm run preview
 - `Space` (fly mode): move up
 - `Shift` (fly mode): move down
 - `Esc`: release pointer lock
+- `E`: open/close inventory
 - Left click: break targeted block
 - Right click: place selected block
 - Mouse wheel or number keys (`1-8`): hotbar selection
+- Inventory has 30 slots; clicking an inventory slot maps that item to the currently active hotbar slot
 
 ## Requirements Mapping
 - Deterministic seeded generation: fixed seed in `src/main.js` (`worldSeed = 20260304`)
 - Chunked world: `16 x 16 x 128` chunks, render distance = 4 chunks in each direction
 - Layered terrain: surface -> dirt/sand sublayers -> stone -> bedrock at `y=0`
 - Required block types with textures: grass, dirt, stone, sand, log, leaves, water, bedrock
+- Additional textured blocks: snow, cactus, red flower, yellow flower, vine, gravel, moss
 - UV atlas textures: generated locally in `src/textureAtlas.js`
 - Face culling + merged chunk geometry: built in `src/chunkMesher.js`
 - Physics: gravity, jumping, AABB collision, grounded detection, wall sliding in `src/player.js`
 - Interaction: DDA voxel raycast, break/place with reach limit, target highlight in `src/raycast.js` + `src/main.js`
-- UI: crosshair, hotbar, mode indicator, coordinates, FPS, pointer-lock instruction overlay
+- UI: crosshair, hotbar, inventory panel (30 slots), mode indicator, coordinates, FPS, pointer-lock instruction overlay
 
 ## Project Layout
 - `src/main.js`: app bootstrap, render loop, interactions
