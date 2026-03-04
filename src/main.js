@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import { BlockId, isBreakable, isSolid } from "./blocks.js";
 import { CHUNK_SIZE, REACH_DISTANCE } from "./constants.js";
+import { MobSystem } from "./mobs.js";
 import { Player } from "./player.js";
+import { QuestSystem } from "./quests.js";
+import { voxelRaycast } from "./raycast.js";
 import { createAtlas } from "./textureAtlas.js";
 import { UI } from "./ui.js";
-import { voxelRaycast } from "./raycast.js";
 import { World } from "./world.js";
 
 const canvas = document.getElementById("app");
@@ -49,12 +51,12 @@ const inventory = [
   { id: BlockId.LEAVES, count: 64 },
   { id: BlockId.CACTUS, count: 32 },
   { id: BlockId.SNOW, count: 64 },
-  { id: BlockId.MOSS, count: 48 },
-  { id: BlockId.GRAVEL, count: 64 },
-  { id: BlockId.FLOWER_RED, count: 32 },
-  { id: BlockId.FLOWER_YELLOW, count: 32 },
-  { id: BlockId.VINE, count: 48 },
-  { id: BlockId.WATER, count: 32 },
+  { id: BlockId.MOSS, count: 36 },
+  { id: BlockId.GRAVEL, count: 48 },
+  { id: BlockId.FLOWER_RED, count: 0 },
+  { id: BlockId.FLOWER_YELLOW, count: 0 },
+  { id: BlockId.VINE, count: 0 },
+  { id: BlockId.WATER, count: 20 },
   { id: BlockId.AIR, count: 0 },
   { id: BlockId.AIR, count: 0 },
   { id: BlockId.AIR, count: 0 },
@@ -74,6 +76,9 @@ const inventory = [
 ];
 
 const ui = new UI(inventory);
+const quests = new QuestSystem(ui, worldSeed + 191);
+const mobs = new MobSystem(scene, world);
+
 ui.setHotbarSelection(0);
 
 const dir = new THREE.Vector3();
@@ -86,14 +91,15 @@ scene.add(targetBox);
 
 let selectedIndex = 0;
 let currentTarget = null;
+let nearestQuestGiver = null;
 
-function isInventoryOpen() {
-  return ui.isInventoryOpen();
+function isMenuOpen() {
+  return ui.isInventoryOpen() || ui.isDialogueOpen();
 }
 
 function refreshOverlayVisibility() {
   const locked = document.pointerLockElement === canvas;
-  ui.setOverlayVisible(!locked && !isInventoryOpen());
+  ui.setOverlayVisible(!locked && !isMenuOpen());
 }
 
 function getGroundY(x, z) {
@@ -118,7 +124,7 @@ window.addEventListener("resize", resize);
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 canvas.addEventListener("click", () => {
-  if (isInventoryOpen()) return;
+  if (isMenuOpen()) return;
   if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
 });
 
@@ -127,7 +133,7 @@ document.addEventListener("pointerlockchange", () => {
 });
 
 window.addEventListener("wheel", (e) => {
-  if (document.pointerLockElement !== canvas || isInventoryOpen()) return;
+  if (document.pointerLockElement !== canvas || isMenuOpen()) return;
   selectedIndex += e.deltaY > 0 ? 1 : -1;
   if (selectedIndex < 0) selectedIndex = ui.hotbarSize - 1;
   if (selectedIndex >= ui.hotbarSize) selectedIndex = 0;
@@ -135,8 +141,16 @@ window.addEventListener("wheel", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
+  if (e.code === "Escape" && ui.isDialogueOpen()) {
+    quests.closeDialogue();
+    refreshOverlayVisibility();
+    return;
+  }
+
   if (e.code === "KeyE") {
-    if (isInventoryOpen()) {
+    if (ui.isDialogueOpen()) return;
+
+    if (ui.isInventoryOpen()) {
       ui.setInventoryVisible(false);
       canvas.requestPointerLock();
     } else {
@@ -144,6 +158,16 @@ window.addEventListener("keydown", (e) => {
       document.exitPointerLock();
     }
     refreshOverlayVisibility();
+    return;
+  }
+
+  if (e.code === "KeyF") {
+    if (ui.isDialogueOpen()) return;
+    if (nearestQuestGiver) {
+      document.exitPointerLock();
+      quests.onTalkToQuestGiver(nearestQuestGiver);
+      refreshOverlayVisibility();
+    }
     return;
   }
 
@@ -176,11 +200,14 @@ function canPlaceAt(x, y, z) {
 }
 
 window.addEventListener("mousedown", (e) => {
-  if (document.pointerLockElement !== canvas || isInventoryOpen()) return;
+  if (document.pointerLockElement !== canvas || isMenuOpen()) return;
   if (!currentTarget) return;
 
   if (e.button === 0) {
-    if (isBreakable(currentTarget.id)) world.setBlock(currentTarget.x, currentTarget.y, currentTarget.z, BlockId.AIR);
+    if (isBreakable(currentTarget.id)) {
+      world.setBlock(currentTarget.x, currentTarget.y, currentTarget.z, BlockId.AIR);
+      ui.addItem(currentTarget.id, 1);
+    }
   }
 
   if (e.button === 2) {
@@ -193,6 +220,7 @@ window.addEventListener("mousedown", (e) => {
 
     const placeId = ui.getSelectedBlock();
     if (placeId === BlockId.AIR || placeId === BlockId.BEDROCK) return;
+    if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
   }
 });
@@ -205,8 +233,9 @@ let chunkTick = 0;
 function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
+  const timeSec = now / 1000;
 
-  if (!isInventoryOpen()) {
+  if (!isMenuOpen()) {
     player.update(world, dt);
   }
 
@@ -218,18 +247,29 @@ function tick(now) {
 
   world.rebuildOneChunk();
   world.rebuildOneChunk();
+  mobs.update(player.position, dt, timeSec);
+
+  nearestQuestGiver = mobs.getNearestQuestGiver(player.position, 4.2);
 
   camera.getWorldDirection(dir);
   currentTarget = voxelRaycast(world, camera.position, dir, REACH_DISTANCE);
-  if (currentTarget && !isInventoryOpen()) {
+  if (currentTarget && !isMenuOpen()) {
     targetBox.visible = true;
     targetBox.position.set(currentTarget.x + 0.5, currentTarget.y + 0.5, currentTarget.z + 0.5);
   } else {
     targetBox.visible = false;
   }
 
+  let hint = quests.getActiveQuestText();
+  if (nearestQuestGiver && !ui.isInventoryOpen()) {
+    const talkHint = `Press F to talk to ${nearestQuestGiver.name}`;
+    hint = hint ? `${hint} | ${talkHint}` : talkHint;
+  }
+  ui.setHint(hint);
+
   ui.updateMode(player.flyMode);
   ui.updateCoords(player.position);
+  refreshOverlayVisibility();
 
   fpsAccum += dt;
   fpsFrames++;

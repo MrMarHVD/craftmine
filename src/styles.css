@@ -82,6 +82,12 @@ body {
   min-width: 170px;
 }
 
+#hint {
+  margin-top: 3px;
+  color: #ffe6a4;
+  min-height: 16px;
+}
+
 #hotbar {
   position: absolute;
   left: 50%;
@@ -166,6 +172,52 @@ body {
   border-color: #ffde8a;
   color: #fff5c4;
   box-shadow: 0 0 8px rgba(255, 222, 138, 0.45);
+}
+
+#dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  width: min(560px, 90vw);
+  background: rgba(18, 24, 29, 0.95);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 12px;
+  display: none;
+  pointer-events: auto;
+}
+
+#dialogue.visible {
+  display: block;
+}
+
+#dialogue-title {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #f8fbff;
+}
+
+#dialogue-text {
+  font-size: 14px;
+  color: #c9d4df;
+  margin-bottom: 10px;
+  white-space: pre-line;
+}
+
+#dialogue-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dialogue-btn {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f2f6fb;
+  padding: 8px 10px;
+  cursor: pointer;
 }
 
 @media (max-width: 760px) {

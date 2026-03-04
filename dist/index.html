@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voxel World Engine</title>
-    <script type="module" crossorigin src="/assets/index-RgU636YP.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CwbvAGQ6.css">
+    <script type="module" crossorigin src="/assets/index-B4XovhUe.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-B9ycHLW0.css">
   </head>
   <body>
     <div id="game-ui">
@@ -13,18 +13,25 @@
         <h1>Voxel World</h1>
         <p>Click to play (Pointer Lock)</p>
         <p>Move: WASD | Look: Mouse | Jump: Space | Fly: Double Space</p>
-        <p>Break: Left Click | Place: Right Click | Select: 1-8 or Scroll | Inventory: E</p>
+        <p>Break: Left Click | Place: Right Click | Select: 1-8 or Scroll | Inventory: E | Talk: F</p>
       </div>
       <div id="crosshair">+</div>
       <div id="hud-top-left">
         <div id="mode">Mode: Walk</div>
         <div id="coords">X: 0 Y: 0 Z: 0</div>
         <div id="fps">FPS: 0</div>
+        <div id="coins">Coins: 0</div>
+        <div id="hint"></div>
       </div>
       <div id="hotbar"></div>
       <div id="inventory">
         <div id="inventory-title">Inventory (30 slots) - click a slot to map to active hotbar index</div>
         <div id="inventory-grid"></div>
+      </div>
+      <div id="dialogue">
+        <div id="dialogue-title"></div>
+        <div id="dialogue-text"></div>
+        <div id="dialogue-options"></div>
       </div>
     </div>
     <canvas id="app"></canvas>

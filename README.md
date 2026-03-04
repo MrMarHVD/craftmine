@@ -12,6 +12,19 @@ Standalone browser voxel engine implemented with custom world/chunk generation, 
 
 Biome boundaries are generated using a climate blend (temperature + moisture noise fields), so transitions are smooth and not straight-line cuts.
 
+## Mob System
+- Each biome has biome-specific natural wildlife and a biome-specific hostile mob.
+- Hostile mobs spawn less frequently and perform attack motions near the player (no player damage yet).
+- Hostile roster includes `Yeti` (Tundra) and `Bandit` (Forest), plus unique hostile variants for the other biomes.
+- Natural examples include sheep, deer, lizards, goats, reindeer, and flying birds (parrot-like jungle mobs).
+
+## Quest System (Initial)
+- Some human NPC questgivers spawn in selected biomes (Forest, Plains, Jungle).
+- Press `F` near a questgiver to open dialogue.
+- Questgivers provide randomized gather quests (flowers/vines/cactus/moss).
+- Completing a quest grants gold coins shown in the HUD.
+- Dialogue includes interactive options (accept/decline/turn-in/close).
+
 ## Tech Stack
 - Rendering: Three.js (WebGL)
 - Bundler/dev server: Vite
@@ -50,6 +63,7 @@ npm run preview
 - `Shift` (fly mode): move down
 - `Esc`: release pointer lock
 - `E`: open/close inventory
+- `F`: interact/talk with nearby questgiver
 - Left click: break targeted block
 - Right click: place selected block
 - Mouse wheel or number keys (`1-8`): hotbar selection
@@ -66,9 +80,13 @@ npm run preview
 - Physics: gravity, jumping, AABB collision, grounded detection, wall sliding in `src/player.js`
 - Interaction: DDA voxel raycast, break/place with reach limit, target highlight in `src/raycast.js` + `src/main.js`
 - UI: crosshair, hotbar, inventory panel (30 slots), mode indicator, coordinates, FPS, pointer-lock instruction overlay
+- Mobs: biome-based natural + hostile mob spawning and simple AI behaviors
+- Quests: questgiver NPC interaction with dialogue and coin rewards
 
 ## Project Layout
 - `src/main.js`: app bootstrap, render loop, interactions
+- `src/mobs.js`: biome mob spawning, behavior updates, questgiver entities
+- `src/quests.js`: quest state, dialogue flows, reward handling
 - `src/world.js`: generation, chunk cache/load/unload, dirty rebuild scheduling
 - `src/chunkMesher.js`: chunk mesh generation and face visibility rules
 - `src/player.js`: movement, camera orientation, physics/collision

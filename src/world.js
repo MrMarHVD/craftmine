@@ -5,13 +5,22 @@ import { fbm2D, valueNoise2D } from "./noise.js";
 import { floorDiv, mod, hash2D } from "./random.js";
 import { buildChunkGeometry } from "./chunkMesher.js";
 
-const BIOME = {
+export const BIOME = {
   DESERT: 0,
   FOREST: 1,
   JUNGLE: 2,
   MOUNTAIN: 3,
   PLAINS: 4,
   TUNDRA: 5,
+};
+
+export const BIOME_NAME = {
+  [BIOME.DESERT]: "Desert",
+  [BIOME.FOREST]: "Forest",
+  [BIOME.JUNGLE]: "Jungle",
+  [BIOME.MOUNTAIN]: "Mountain",
+  [BIOME.PLAINS]: "Plains",
+  [BIOME.TUNDRA]: "Tundra",
 };
 
 const BIOME_PROPS = {
@@ -168,6 +177,14 @@ export class World {
       surface,
       subsurface,
     };
+  }
+
+  getBiomeAt(x, z) {
+    return this.getColumnData(x, z).dominantBiome;
+  }
+
+  getSurfaceYAt(x, z) {
+    return this.getColumnData(x, z).height;
   }
 
   generateChunkData(cx, cz) {
