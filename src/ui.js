@@ -101,6 +101,50 @@ function createIcon(blockId) {
       ctx.fillStyle = "rgba(80,144,61,0.9)";
       ctx.fillRect(11, 3, 3, 3);
       break;
+    case BlockId.WEAPON_BANDIT_BLADE:
+      ctx.fillStyle = "rgba(186,188,196,0.95)";
+      ctx.fillRect(10, 3, 4, 14);
+      ctx.fillStyle = "rgba(110,74,36,0.95)";
+      ctx.fillRect(9, 17, 6, 4);
+      break;
+    case BlockId.WEAPON_RAIDER_SABER:
+      ctx.fillStyle = "rgba(202,204,214,0.95)";
+      ctx.fillRect(7, 4, 10, 3);
+      ctx.fillRect(14, 6, 3, 10);
+      ctx.fillStyle = "rgba(126,86,40,0.95)";
+      ctx.fillRect(6, 16, 8, 4);
+      break;
+    case BlockId.WEAPON_SCORP_BOW:
+      ctx.strokeStyle = "rgba(158,106,52,0.95)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(12, 12, 7, Math.PI * 0.2, Math.PI * 1.8);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(220,220,220,0.9)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(17, 5);
+      ctx.lineTo(17, 19);
+      ctx.stroke();
+      break;
+    case BlockId.WEAPON_JAGUAR_CLAWS:
+      ctx.fillStyle = "rgba(220,220,228,0.95)";
+      ctx.fillRect(6, 4, 2, 14);
+      ctx.fillRect(11, 4, 2, 14);
+      ctx.fillRect(16, 4, 2, 14);
+      break;
+    case BlockId.WEAPON_WRAITH_HAMMER:
+      ctx.fillStyle = "rgba(132,138,150,0.95)";
+      ctx.fillRect(7, 5, 10, 6);
+      ctx.fillStyle = "rgba(122,86,50,0.95)";
+      ctx.fillRect(11, 11, 2, 11);
+      break;
+    case BlockId.WEAPON_YETI_AXE:
+      ctx.fillStyle = "rgba(176,212,236,0.95)";
+      ctx.fillRect(6, 6, 10, 7);
+      ctx.fillStyle = "rgba(116,82,48,0.95)";
+      ctx.fillRect(13, 11, 2, 10);
+      break;
     default:
       drawNoise(ctx, 90, 90, 90, 10);
       break;

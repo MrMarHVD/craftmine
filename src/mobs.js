@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { BlockId } from "./blocks.js";
-import { BIOME, BIOME_NAME } from "./world.js";
-import { CHUNK_SIZE, RENDER_DISTANCE } from "./constants.js";
+import { CHUNK_SIZE, RENDER_DISTANCE, WORLD_HEIGHT } from "./constants.js";
 import { floorDiv, hash2D } from "./random.js";
+import { BIOME, BIOME_NAME } from "./world.js";
 
 const HOSTILE_SITE_CELL = 384;
 const HOSTILE_SITE_CHANCE = 0.56;
@@ -18,12 +18,54 @@ const NATURAL_BY_BIOME = {
 };
 
 const HOSTILE_BY_BIOME = {
-  [BIOME.FOREST]: { key: "bandit", name: "Bandit", color: 0x6e4d36, speed: 2.1 },
-  [BIOME.DESERT]: { key: "sandstalker", name: "Sandstalker", color: 0x978447, speed: 2.0 },
-  [BIOME.JUNGLE]: { key: "jaguar", name: "Jungle Stalker", color: 0xc2813d, speed: 2.3 },
-  [BIOME.MOUNTAIN]: { key: "rockwraith", name: "Rock Wraith", color: 0x798086, speed: 1.9 },
-  [BIOME.PLAINS]: { key: "raider", name: "Raider", color: 0x704838, speed: 2.0 },
-  [BIOME.TUNDRA]: { key: "yeti", name: "Yeti", color: 0xc8d9e5, speed: 1.8 },
+  [BIOME.FOREST]: {
+    key: "bandit",
+    name: "Bandit",
+    color: 0x6e4d36,
+    speed: 2.1,
+    health: 65,
+    drop: BlockId.WEAPON_BANDIT_BLADE,
+  },
+  [BIOME.DESERT]: {
+    key: "sandstalker",
+    name: "Sandstalker",
+    color: 0x978447,
+    speed: 2.0,
+    health: 58,
+    drop: BlockId.WEAPON_SCORP_BOW,
+  },
+  [BIOME.JUNGLE]: {
+    key: "jaguar",
+    name: "Jungle Stalker",
+    color: 0xc2813d,
+    speed: 2.3,
+    health: 60,
+    drop: BlockId.WEAPON_JAGUAR_CLAWS,
+  },
+  [BIOME.MOUNTAIN]: {
+    key: "rockwraith",
+    name: "Rock Wraith",
+    color: 0x798086,
+    speed: 1.9,
+    health: 72,
+    drop: BlockId.WEAPON_WRAITH_HAMMER,
+  },
+  [BIOME.PLAINS]: {
+    key: "raider",
+    name: "Raider",
+    color: 0x704838,
+    speed: 2.0,
+    health: 68,
+    drop: BlockId.WEAPON_RAIDER_SABER,
+  },
+  [BIOME.TUNDRA]: {
+    key: "yeti",
+    name: "Yeti",
+    color: 0xc8d9e5,
+    speed: 1.8,
+    health: 85,
+    drop: BlockId.WEAPON_YETI_AXE,
+  },
 };
 
 const INTELLIGENT_HOSTILES = new Set(["bandit", "raider"]);
@@ -31,7 +73,7 @@ const INTELLIGENT_HOSTILES = new Set(["bandit", "raider"]);
 function findTopSolidY(world, x, z) {
   const ix = Math.floor(x);
   const iz = Math.floor(z);
-  for (let y = 127; y >= 1; y--) {
+  for (let y = WORLD_HEIGHT - 1; y >= 1; y--) {
     const id = world.getBlock(ix, y, iz);
     const above = world.getBlock(ix, y + 1, iz);
     if (id !== BlockId.AIR && id !== BlockId.WATER && above === BlockId.AIR) return y;
@@ -54,14 +96,7 @@ function addEyes(parent, y, z, color = 0x1b1b1b, spacing = 0.12) {
 }
 
 function createRig(type) {
-  return {
-    type,
-    legs: [],
-    arms: [],
-    wings: [],
-    tail: null,
-    head: null,
-  };
+  return { type, legs: [], arms: [], wings: [], tail: null, head: null };
 }
 
 function buildQuestGiver(root) {
@@ -272,10 +307,50 @@ function createMobModel(def, hostile, questgiver = false) {
   return { root, rig };
 }
 
+function createHealthBarSprite(entity) {
+  const c = document.createElement("canvas");
+  c.width = 96;
+  c.height = 16;
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.45, 0.26, 1);
+  sprite.position.set(0, 2.25, 0);
+  entity.mesh.add(sprite);
+  entity.healthCanvas = c;
+  entity.healthTexture = tex;
+  entity.healthSprite = sprite;
+  updateHealthBarSprite(entity);
+}
+
+function updateHealthBarSprite(entity) {
+  if (!entity.healthCanvas) return;
+  const ctx = entity.healthCanvas.getContext("2d");
+  ctx.clearRect(0, 0, entity.healthCanvas.width, entity.healthCanvas.height);
+  ctx.fillStyle = "rgba(25,25,25,0.85)";
+  ctx.fillRect(0, 0, 96, 16);
+  const ratio = Math.max(0, Math.min(1, entity.health / entity.maxHealth));
+  ctx.fillStyle = "rgba(192,36,36,0.95)";
+  ctx.fillRect(2, 2, Math.floor(92 * ratio), 12);
+  entity.healthTexture.needsUpdate = true;
+}
+
+function createDamageHalo(entity) {
+  const g = new THREE.RingGeometry(0.65, 0.95, 24);
+  const m = new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0, side: THREE.DoubleSide, depthTest: false });
+  const halo = new THREE.Mesh(g, m);
+  halo.position.set(0, 1.05, 0);
+  halo.rotation.x = Math.PI / 2;
+  entity.mesh.add(halo);
+  entity.damageHalo = halo;
+}
+
 export class MobSystem {
-  constructor(scene, world) {
+  constructor(scene, world, options = {}) {
     this.scene = scene;
     this.world = world;
+    this.onEnemyKilled = options.onEnemyKilled ?? (() => {});
 
     this.entities = new Map();
     this.chunkSpawns = new Map();
@@ -285,6 +360,15 @@ export class MobSystem {
     this.spawnTick = 0;
 
     this.tmpDir = new THREE.Vector3();
+    this.raycaster = new THREE.Raycaster();
+  }
+
+  attachEntityMesh(entity) {
+    entity.mesh.userData.entityId = entity.id;
+    entity.mesh.traverse((n) => {
+      if (n.isMesh) n.userData.entityId = entity.id;
+    });
+    this.scene.add(entity.mesh);
   }
 
   spawnForChunk(chunk) {
@@ -296,17 +380,13 @@ export class MobSystem {
     const biome = this.world.getBiomeAt(centerX, centerZ);
 
     const created = [];
-    const nDef = NATURAL_BY_BIOME[biome];
-    created.push(this.spawnMob(chunk, biome, nDef, false));
+    created.push(this.spawnMob(chunk, biome, NATURAL_BY_BIOME[biome], false));
 
     const questRoll = hash2D(chunk.cx, chunk.cz, 45019);
     const canQuestgiver = biome === BIOME.FOREST || biome === BIOME.PLAINS || biome === BIOME.JUNGLE;
     if (canQuestgiver && questRoll > 0.93) created.push(this.spawnQuestGiver(chunk, biome));
 
-    this.chunkSpawns.set(
-      key,
-      created.filter(Boolean)
-    );
+    this.chunkSpawns.set(key, created.filter(Boolean));
   }
 
   getHostileSite(cellX, cellZ) {
@@ -327,22 +407,10 @@ export class MobSystem {
     const intelligent = INTELLIGENT_HOSTILES.has(def.key);
 
     let groupSize = 1;
-    if (intelligent) {
-      groupSize = 3 + ((hash2D(cellX, cellZ, 88931) * 3) | 0); // 3..5
-    } else if (hash2D(cellX, cellZ, 88941) > 0.8) {
-      groupSize = 2;
-    }
+    if (intelligent) groupSize = 3 + ((hash2D(cellX, cellZ, 88931) * 3) | 0);
+    else if (hash2D(cellX, cellZ, 88941) > 0.8) groupSize = 2;
 
-    const site = {
-      key,
-      x,
-      z,
-      biome,
-      def,
-      intelligent,
-      groupSize,
-    };
-
+    const site = { key, x, z, biome, def, intelligent, groupSize };
     this.hostileSites.set(key, site);
     return site;
   }
@@ -359,7 +427,6 @@ export class MobSystem {
       const sx = Math.floor(site.x + Math.cos(a) * r);
       const sz = Math.floor(site.z + Math.sin(a) * r);
       const sy = findTopSolidY(this.world, sx, sz);
-
       const id = this.spawnHostileAt(site, i, sx, sy, sz, baseY);
       if (id) ids.push(id);
     }
@@ -372,17 +439,17 @@ export class MobSystem {
     const id = this.nextId++;
     const y = surfaceY + (site.def.flying ? 5.3 : 1.02);
     root.position.set(x + 0.5, y, z + 0.5);
-    this.scene.add(root);
 
     const angle = (Math.PI * 2 * index) / Math.max(1, site.groupSize);
     const offsetRadius = site.intelligent ? 3.2 : 1.6;
 
-    this.entities.set(id, {
+    const entity = {
       id,
       sourceType: "site",
       sourceKey: site.key,
       biome: site.biome,
       kind: "mob",
+      key: site.def.key,
       name: site.def.name,
       hostile: true,
       flying: !!site.def.flying,
@@ -401,8 +468,17 @@ export class MobSystem {
       animPhase: hash2D(id, x, 9201) * Math.PI * 2,
       groupId: site.key,
       groupCenterY: baseY + 1.02,
-    });
+      maxHealth: site.def.health,
+      health: site.def.health,
+      dropItem: site.def.drop,
+      damageFlash: 0,
+    };
 
+    createHealthBarSprite(entity);
+    createDamageHalo(entity);
+
+    this.entities.set(id, entity);
+    this.attachEntityMesh(entity);
     return id;
   }
 
@@ -415,14 +491,14 @@ export class MobSystem {
     const id = this.nextId++;
     const y = surface + (def.flying ? 5.3 : 1.02);
     root.position.set(x + 0.5, y, z + 0.5);
-    this.scene.add(root);
 
-    this.entities.set(id, {
+    const entity = {
       id,
       sourceType: "chunk",
       sourceKey: chunk.key,
       biome,
       kind: "mob",
+      key: def.key,
       name: def.name,
       hostile,
       flying: !!def.flying,
@@ -440,8 +516,19 @@ export class MobSystem {
       patrolRadius: 9,
       animPhase: hash2D(id, x, 9201) * Math.PI * 2,
       groupId: null,
-    });
+      maxHealth: hostile ? 50 : 30,
+      health: hostile ? 50 : 30,
+      dropItem: null,
+      damageFlash: 0,
+    };
 
+    if (hostile) {
+      createHealthBarSprite(entity);
+      createDamageHalo(entity);
+    }
+
+    this.entities.set(id, entity);
+    this.attachEntityMesh(entity);
     return id;
   }
 
@@ -453,9 +540,8 @@ export class MobSystem {
 
     const id = this.nextId++;
     root.position.set(x + 0.5, surface + 1.02, z + 0.5);
-    this.scene.add(root);
 
-    this.entities.set(id, {
+    const entity = {
       id,
       sourceType: "chunk",
       sourceKey: chunk.key,
@@ -471,8 +557,10 @@ export class MobSystem {
       homeY: surface + 1.02,
       bobOffset: hash2D(id, x, 21991) * 6.28,
       animPhase: 0,
-    });
+    };
 
+    this.entities.set(id, entity);
+    this.attachEntityMesh(entity);
     return id;
   }
 
@@ -481,11 +569,106 @@ export class MobSystem {
     if (!e) return;
     this.scene.remove(e.mesh);
     e.mesh.traverse((n) => {
-      if (!n.isMesh) return;
+      if (!n.isMesh && !n.isSprite) return;
       n.geometry?.dispose?.();
       n.material?.dispose?.();
+      if (n.material?.map) n.material.map.dispose?.();
     });
     this.entities.delete(id);
+  }
+
+  getEntityFromObject(obj) {
+    let n = obj;
+    while (n) {
+      if (n.userData && n.userData.entityId !== undefined) {
+        return this.entities.get(n.userData.entityId) ?? null;
+      }
+      n = n.parent;
+    }
+    return null;
+  }
+
+  attackFromRay(origin, direction, maxDistance, damage) {
+    const candidates = [];
+    const aliveHostiles = [];
+    for (const e of this.entities.values()) {
+      if (!e.hostile || e.kind !== "mob") continue;
+      if (e.health <= 0) continue;
+      candidates.push(e.mesh);
+      aliveHostiles.push(e);
+    }
+    if (candidates.length === 0) return null;
+
+    this.raycaster.set(origin, direction);
+    this.raycaster.far = maxDistance;
+    const hits = this.raycaster.intersectObjects(candidates, true);
+    if (hits.length > 0) {
+      const entity = this.getEntityFromObject(hits[0].object);
+      if (!entity) return null;
+      return this.damageEntity(entity, damage);
+    }
+
+    // Fallback cone hit test so clicks still land on animated/small enemies.
+    const maxAngle = 0.4; // ~23 degrees
+    let best = null;
+    let bestDist = Infinity;
+    const toTarget = new THREE.Vector3();
+    for (const e of aliveHostiles) {
+      toTarget.subVectors(e.mesh.position, origin);
+      const dist = toTarget.length();
+      if (dist > maxDistance || dist < 0.0001) continue;
+      const angle = direction.angleTo(toTarget.multiplyScalar(1 / dist));
+      if (angle > maxAngle) continue;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = e;
+      }
+    }
+    if (!best) return null;
+    return this.damageEntity(best, damage);
+  }
+
+  attackNearestInFront(origin, direction, maxDistance, maxAngle, damage) {
+    let best = null;
+    let bestDist = Infinity;
+    const toTarget = new THREE.Vector3();
+
+    for (const e of this.entities.values()) {
+      if (!e.hostile || e.kind !== "mob") continue;
+      if (e.health <= 0) continue;
+
+      toTarget.subVectors(e.mesh.position, origin);
+      const dist = toTarget.length();
+      if (dist > maxDistance || dist < 0.0001) continue;
+
+      const dirToTarget = toTarget.clone().multiplyScalar(1 / dist);
+      const angle = direction.angleTo(dirToTarget);
+      if (angle > maxAngle) continue;
+
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = e;
+      }
+    }
+
+    if (!best) return null;
+    return this.damageEntity(best, damage);
+  }
+
+  damageEntity(entity, damage) {
+    if (!entity || !entity.hostile || entity.kind !== "mob") return null;
+    entity.health = Math.max(0, entity.health - damage);
+    entity.damageFlash = 0.25;
+    updateHealthBarSprite(entity);
+
+    if (entity.health <= 0) {
+      const payload = { name: entity.name, key: entity.key, dropItem: entity.dropItem };
+      this.removeEntity(entity.id);
+      this.onEnemyKilled(payload);
+      return { killed: true, ...payload };
+    }
+
+    return { killed: false, name: entity.name, key: entity.key };
   }
 
   spawnHostilesNear(playerPos) {
@@ -525,13 +708,11 @@ export class MobSystem {
     }
 
     for (const [chunkKey, ids] of this.chunkSpawns.entries()) {
-      const stillAny = ids.some((id) => this.entities.has(id));
-      if (!stillAny) this.chunkSpawns.delete(chunkKey);
+      if (!ids.some((id) => this.entities.has(id))) this.chunkSpawns.delete(chunkKey);
     }
 
     for (const [siteKey, ids] of this.hostileSiteSpawns.entries()) {
-      const stillAny = ids.some((id) => this.entities.has(id));
-      if (!stillAny) this.hostileSiteSpawns.delete(siteKey);
+      if (!ids.some((id) => this.entities.has(id))) this.hostileSiteSpawns.delete(siteKey);
     }
   }
 
@@ -542,20 +723,16 @@ export class MobSystem {
     const targetAmp = moving ? Math.min(0.55, speed2D * 0.16) : 0.05;
     e.animPhase += dt * (moving ? 8 + speed2D * 2.4 : 2.2);
 
-    if (rig.legs.length > 0) {
-      for (let i = 0; i < rig.legs.length; i++) {
-        const leg = rig.legs[i];
-        const phase = e.animPhase + (i % 2 === 0 ? 0 : Math.PI);
-        leg.rotation.x = Math.sin(phase) * targetAmp;
-      }
+    for (let i = 0; i < rig.legs.length; i++) {
+      const leg = rig.legs[i];
+      const phase = e.animPhase + (i % 2 === 0 ? 0 : Math.PI);
+      leg.rotation.x = Math.sin(phase) * targetAmp;
     }
 
-    if (rig.arms.length > 0) {
-      for (let i = 0; i < rig.arms.length; i++) {
-        const arm = rig.arms[i];
-        const phase = e.animPhase + (i % 2 === 0 ? Math.PI : 0);
-        arm.rotation.x = Math.sin(phase) * (targetAmp * 0.9);
-      }
+    for (let i = 0; i < rig.arms.length; i++) {
+      const arm = rig.arms[i];
+      const phase = e.animPhase + (i % 2 === 0 ? Math.PI : 0);
+      arm.rotation.x = Math.sin(phase) * (targetAmp * 0.9);
     }
 
     if (rig.wings.length > 0) {
@@ -584,8 +761,7 @@ export class MobSystem {
     const p = e.mesh.position;
     const toPlayerX = playerPos.x - p.x;
     const toPlayerZ = playerPos.z - p.z;
-    const distSq = toPlayerX * toPlayerX + toPlayerZ * toPlayerZ;
-    const dist = Math.sqrt(distSq);
+    const dist = Math.hypot(toPlayerX, toPlayerZ);
 
     if (e.hostile && agroEnabled && dist < 8.8) {
       const inv = dist > 0.001 ? 1 / dist : 0;
@@ -626,10 +802,7 @@ export class MobSystem {
     p.x += e.vx * dt;
     p.z += e.vz * dt;
 
-    const sx = Math.floor(p.x);
-    const sz = Math.floor(p.z);
-    const surface = findTopSolidY(this.world, sx, sz);
-
+    const surface = findTopSolidY(this.world, p.x, p.z);
     if (!e.flying) {
       const targetY = surface + 1.02;
       if (Math.abs(targetY - e.homeY) < 4) {
@@ -639,6 +812,11 @@ export class MobSystem {
         e.vx *= -0.8;
         e.vz *= -0.8;
       }
+    }
+
+    if (e.damageHalo) {
+      e.damageFlash = Math.max(0, e.damageFlash - dt);
+      e.damageHalo.material.opacity = e.damageFlash > 0 ? 0.7 * (e.damageFlash / 0.25) : 0;
     }
 
     this.tmpDir.set(e.vx, 0, e.vz);

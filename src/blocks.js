@@ -17,6 +17,12 @@ export const BlockId = {
   MOSS: 15,
   CASTLE_BRICK: 16,
   APPLE: 17,
+  WEAPON_BANDIT_BLADE: 18,
+  WEAPON_RAIDER_SABER: 19,
+  WEAPON_SCORP_BOW: 20,
+  WEAPON_JAGUAR_CLAWS: 21,
+  WEAPON_WRAITH_HAMMER: 22,
+  WEAPON_YETI_AXE: 23,
 };
 
 export const FACE = {
@@ -72,6 +78,42 @@ export const BLOCKS = {
     textures: { all: "castle_brick" },
   },
   [BlockId.APPLE]: { name: "Apple", solid: false, transparent: true, textures: { all: "apple" } },
+  [BlockId.WEAPON_BANDIT_BLADE]: {
+    name: "Bandit Blade",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.WEAPON_RAIDER_SABER]: {
+    name: "Raider Saber",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.WEAPON_SCORP_BOW]: {
+    name: "Scorpion Bow",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.WEAPON_JAGUAR_CLAWS]: {
+    name: "Jaguar Claws",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.WEAPON_WRAITH_HAMMER]: {
+    name: "Wraith Hammer",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.WEAPON_YETI_AXE]: {
+    name: "Yeti Axe",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
 };
 
 export function isSolid(id) {

@@ -10,6 +10,21 @@ import { UI } from "./ui.js";
 import { World } from "./world.js";
 
 const MAX_HEALTH = 100;
+const MELEE_REACH = 6;
+const MELEE_CONE_ANGLE = 0.9;
+const BASE_ATTACK_DAMAGE = 12;
+const ATTACK_COOLDOWN = 0.2;
+const PLACE_BLOCK_BLACKLIST = new Set([
+  BlockId.AIR,
+  BlockId.BEDROCK,
+  BlockId.APPLE,
+  BlockId.WEAPON_BANDIT_BLADE,
+  BlockId.WEAPON_RAIDER_SABER,
+  BlockId.WEAPON_SCORP_BOW,
+  BlockId.WEAPON_JAGUAR_CLAWS,
+  BlockId.WEAPON_WRAITH_HAMMER,
+  BlockId.WEAPON_YETI_AXE,
+]);
 
 const canvas = document.getElementById("app");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
@@ -47,7 +62,12 @@ const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 
 
 const ui = new UI(inventory);
 const quests = new QuestSystem(ui, worldSeed + 191);
-const mobs = new MobSystem(scene, world);
+const mobs = new MobSystem(scene, world, {
+  onEnemyKilled: (payload) => {
+    if (!payload?.dropItem) return;
+    ui.addItem(payload.dropItem, 1);
+  },
+});
 
 const debugSettings = {
   walkSpeed: 5.2,
@@ -58,6 +78,7 @@ const debugSettings = {
 
 let health = MAX_HEALTH;
 let incomingDamageCooldown = 0;
+let attackCooldown = 0;
 
 player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
 ui.setupDebugPane(debugSettings, (patch) => {
@@ -212,11 +233,43 @@ function canPlaceAt(x, y, z) {
   );
 }
 
+function getAttackDamage(itemId) {
+  switch (itemId) {
+    case BlockId.WEAPON_BANDIT_BLADE:
+      return 24;
+    case BlockId.WEAPON_RAIDER_SABER:
+      return 27;
+    case BlockId.WEAPON_SCORP_BOW:
+      return 22;
+    case BlockId.WEAPON_JAGUAR_CLAWS:
+      return 20;
+    case BlockId.WEAPON_WRAITH_HAMMER:
+      return 32;
+    case BlockId.WEAPON_YETI_AXE:
+      return 36;
+    default:
+      return BASE_ATTACK_DAMAGE;
+  }
+}
+
 window.addEventListener("mousedown", (e) => {
   if (document.pointerLockElement !== canvas || isMenuOpen()) return;
-  if (!currentTarget) return;
 
   if (e.button === 0) {
+    if (attackCooldown > 0) return;
+
+    camera.getWorldDirection(dir);
+    const attack = mobs.attackNearestInFront(
+      camera.position,
+      dir,
+      MELEE_REACH,
+      MELEE_CONE_ANGLE,
+      getAttackDamage(ui.getSelectedBlock())
+    );
+    attackCooldown = ATTACK_COOLDOWN;
+    if (attack) return;
+
+    if (!currentTarget) return;
     if (isBreakable(currentTarget.id)) {
       world.setBlock(currentTarget.x, currentTarget.y, currentTarget.z, BlockId.AIR);
       ui.addItem(currentTarget.id, 1);
@@ -224,6 +277,7 @@ window.addEventListener("mousedown", (e) => {
   }
 
   if (e.button === 2) {
+    if (!currentTarget) return;
     const placeX = currentTarget.previous.x;
     const placeY = currentTarget.previous.y;
     const placeZ = currentTarget.previous.z;
@@ -232,7 +286,7 @@ window.addEventListener("mousedown", (e) => {
     if (!canPlaceAt(placeX, placeY, placeZ)) return;
 
     const placeId = ui.getSelectedBlock();
-    if (placeId === BlockId.AIR || placeId === BlockId.BEDROCK || placeId === BlockId.APPLE) return;
+    if (PLACE_BLOCK_BLACKLIST.has(placeId)) return;
     if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
   }
@@ -247,6 +301,7 @@ function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
   const timeSec = now / 1000;
+  attackCooldown = Math.max(0, attackCooldown - dt);
 
   if (!isMenuOpen()) {
     player.update(world, dt);
