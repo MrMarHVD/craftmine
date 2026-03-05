@@ -21,7 +21,7 @@ const HOSTILE_BY_BIOME = {
   [BIOME.TUNDRA]: { key: "yeti", name: "Yeti", color: 0xc8d9e5, speed: 1.8 },
 };
 
-function makePart(parent, size, pos, color) {
+function addPart(parent, size, pos, color) {
   const g = new THREE.BoxGeometry(size[0], size[1], size[2]);
   const m = new THREE.MeshLambertMaterial({ color });
   const mesh = new THREE.Mesh(g, m);
@@ -30,39 +30,194 @@ function makePart(parent, size, pos, color) {
   return mesh;
 }
 
+function addEyes(parent, y, z, color = 0x1b1b1b, spacing = 0.12) {
+  addPart(parent, [0.06, 0.06, 0.02], [-spacing, y, z], color);
+  addPart(parent, [0.06, 0.06, 0.02], [spacing, y, z], color);
+}
+
+function buildQuestGiver(root) {
+  addPart(root, [0.6, 0.92, 0.34], [0, 0.46, 0], 0x3c6fa1);
+  addPart(root, [0.52, 0.5, 0.36], [0, 1.17, 0], 0xdfc2a1);
+  addPart(root, [0.18, 0.56, 0.2], [-0.2, 0.24, 0], 0x2d3b53);
+  addPart(root, [0.18, 0.56, 0.2], [0.2, 0.24, 0], 0x2d3b53);
+  addPart(root, [0.1, 0.4, 0.1], [-0.36, 0.62, 0], 0xdfc2a1);
+  addPart(root, [0.1, 0.4, 0.1], [0.36, 0.62, 0], 0xdfc2a1);
+  addPart(root, [0.58, 0.1, 0.38], [0, 1.48, 0], 0x3a2b22);
+  addEyes(root, 1.2, 0.19, 0x1a1a1a, 0.11);
+  addPart(root, [0.1, 0.03, 0.02], [0, 1.09, 0.19], 0x7a4f3a);
+}
+
+function buildDeer(root) {
+  addPart(root, [0.75, 0.44, 0.34], [0, 0.58, 0], 0xa0764f);
+  addPart(root, [0.32, 0.32, 0.28], [0.42, 0.76, 0], 0x9a6e46);
+  addPart(root, [0.2, 0.14, 0.2], [0.53, 0.62, 0], 0x8e5e39);
+  addEyes(root, 0.8, 0.14, 0x171717, 0.05);
+  for (const x of [-0.24, 0.24]) {
+    addPart(root, [0.14, 0.38, 0.14], [x, 0.2, 0.12], 0x7b5436);
+    addPart(root, [0.14, 0.38, 0.14], [x, 0.2, -0.12], 0x7b5436);
+  }
+  addPart(root, [0.04, 0.28, 0.04], [0.5, 1.02, 0.09], 0xd3c4ab);
+  addPart(root, [0.04, 0.28, 0.04], [0.5, 1.02, -0.09], 0xd3c4ab);
+}
+
+function buildLizard(root) {
+  addPart(root, [0.8, 0.22, 0.32], [0, 0.38, 0], 0xb9b06d);
+  addPart(root, [0.3, 0.18, 0.24], [0.49, 0.41, 0], 0x9c9459);
+  addPart(root, [0.46, 0.1, 0.1], [-0.62, 0.32, 0], 0x8c8451);
+  addEyes(root, 0.45, 0.13, 0x222222, 0.05);
+  for (const z of [-0.13, 0.13]) {
+    addPart(root, [0.14, 0.1, 0.14], [-0.15, 0.2, z], 0x998f59);
+    addPart(root, [0.14, 0.1, 0.14], [0.2, 0.2, z], 0x998f59);
+  }
+}
+
+function buildParrot(root) {
+  addPart(root, [0.32, 0.42, 0.28], [0, 0.64, 0], 0x2ec66b);
+  addPart(root, [0.28, 0.24, 0.24], [0.14, 0.9, 0], 0x23b45f);
+  addPart(root, [0.1, 0.08, 0.08], [0.3, 0.88, 0], 0xe4aa35);
+  addEyes(root, 0.93, 0.12, 0x101010, 0.045);
+  addPart(root, [0.48, 0.06, 0.2], [0, 0.66, 0.19], 0x4fd6ff);
+  addPart(root, [0.48, 0.06, 0.2], [0, 0.66, -0.19], 0x3eb7e0);
+  addPart(root, [0.14, 0.16, 0.12], [-0.2, 0.4, 0], 0x2ba95a);
+}
+
+function buildGoat(root) {
+  addPart(root, [0.68, 0.4, 0.3], [0, 0.58, 0], 0xdbdcdf);
+  addPart(root, [0.3, 0.28, 0.24], [0.38, 0.76, 0], 0xc8c9ce);
+  addEyes(root, 0.79, 0.12, 0x161616, 0.05);
+  addPart(root, [0.06, 0.24, 0.06], [0.43, 0.98, 0.09], 0xc9b486);
+  addPart(root, [0.06, 0.24, 0.06], [0.43, 0.98, -0.09], 0xc9b486);
+  for (const x of [-0.2, 0.2]) {
+    addPart(root, [0.13, 0.36, 0.13], [x, 0.2, 0.11], 0x96979d);
+    addPart(root, [0.13, 0.36, 0.13], [x, 0.2, -0.11], 0x96979d);
+  }
+}
+
+function buildSheep(root) {
+  addPart(root, [0.74, 0.46, 0.42], [0, 0.58, 0], 0xf0f0ef);
+  addPart(root, [0.34, 0.3, 0.28], [0.43, 0.72, 0], 0x463c34);
+  addEyes(root, 0.74, 0.14, 0x131313, 0.06);
+  for (const x of [-0.22, 0.22]) {
+    addPart(root, [0.13, 0.34, 0.13], [x, 0.2, 0.14], 0x5e544a);
+    addPart(root, [0.13, 0.34, 0.13], [x, 0.2, -0.14], 0x5e544a);
+  }
+}
+
+function buildReindeer(root) {
+  buildDeer(root);
+  addPart(root, [0.04, 0.24, 0.04], [0.52, 1.14, 0.14], 0xd8d2bf);
+  addPart(root, [0.04, 0.16, 0.04], [0.57, 1.2, 0.18], 0xd8d2bf);
+  addPart(root, [0.04, 0.24, 0.04], [0.52, 1.14, -0.14], 0xd8d2bf);
+  addPart(root, [0.04, 0.16, 0.04], [0.57, 1.2, -0.18], 0xd8d2bf);
+}
+
+function buildHumanoid(root, bodyColor, skinColor, hostileStyle = false) {
+  addPart(root, [0.56, 0.88, 0.32], [0, 0.46, 0], bodyColor);
+  addPart(root, [0.44, 0.48, 0.32], [0, 1.14, 0], skinColor);
+  addPart(root, [0.16, 0.56, 0.16], [-0.18, 0.22, 0], 0x30261f);
+  addPart(root, [0.16, 0.56, 0.16], [0.18, 0.22, 0], 0x30261f);
+  addPart(root, [0.12, 0.42, 0.12], [-0.34, 0.62, 0], skinColor);
+  addPart(root, [0.12, 0.42, 0.12], [0.34, 0.62, 0], skinColor);
+  addEyes(root, 1.16, 0.17, hostileStyle ? 0xbf1d1d : 0x141414, 0.08);
+  addPart(root, [0.12, 0.04, 0.02], [0, 1.04, 0.17], hostileStyle ? 0x4f1010 : 0x774f38);
+  if (hostileStyle) {
+    addPart(root, [0.46, 0.08, 0.36], [0, 1.42, 0], 0x1f1f1f);
+  }
+}
+
+function buildSandStalker(root) {
+  addPart(root, [0.66, 0.3, 0.32], [0, 0.48, 0], 0x978447);
+  addPart(root, [0.32, 0.2, 0.24], [0.42, 0.54, 0], 0x7d6a37);
+  addEyes(root, 0.58, 0.12, 0xce2f1e, 0.05);
+  addPart(root, [0.5, 0.08, 0.08], [-0.58, 0.42, 0], 0x6d5a30);
+  for (const z of [-0.13, 0.13]) {
+    addPart(root, [0.12, 0.2, 0.12], [-0.16, 0.2, z], 0x7f703e);
+    addPart(root, [0.12, 0.2, 0.12], [0.16, 0.2, z], 0x7f703e);
+  }
+}
+
+function buildJaguar(root) {
+  addPart(root, [0.74, 0.34, 0.32], [0, 0.54, 0], 0xc2813d);
+  addPart(root, [0.32, 0.24, 0.24], [0.45, 0.62, 0], 0xac6f31);
+  addEyes(root, 0.65, 0.12, 0xbd1e1e, 0.05);
+  for (const x of [-0.22, 0.22]) {
+    addPart(root, [0.12, 0.28, 0.12], [x, 0.2, 0.13], 0x8e5a27);
+    addPart(root, [0.12, 0.28, 0.12], [x, 0.2, -0.13], 0x8e5a27);
+  }
+  addPart(root, [0.44, 0.08, 0.08], [-0.58, 0.5, 0], 0x8a5825);
+}
+
+function buildRockWraith(root) {
+  addPart(root, [0.64, 0.86, 0.42], [0, 0.56, 0], 0x798086);
+  addPart(root, [0.48, 0.36, 0.34], [0, 1.18, 0], 0x6a737a);
+  addPart(root, [0.26, 0.5, 0.16], [-0.45, 0.62, 0], 0x666f77);
+  addPart(root, [0.26, 0.5, 0.16], [0.45, 0.62, 0], 0x666f77);
+  addEyes(root, 1.2, 0.18, 0xffad33, 0.09);
+}
+
+function buildYeti(root) {
+  addPart(root, [0.78, 0.96, 0.48], [0, 0.58, 0], 0xc8d9e5);
+  addPart(root, [0.52, 0.5, 0.4], [0, 1.23, 0], 0xd7e5ef);
+  addPart(root, [0.28, 0.62, 0.2], [-0.48, 0.62, 0], 0xb8ccdb);
+  addPart(root, [0.28, 0.62, 0.2], [0.48, 0.62, 0], 0xb8ccdb);
+  addPart(root, [0.18, 0.5, 0.18], [-0.2, 0.25, 0], 0x9db2c2);
+  addPart(root, [0.18, 0.5, 0.18], [0.2, 0.25, 0], 0x9db2c2);
+  addEyes(root, 1.22, 0.2, 0x8ac0ff, 0.1);
+  addPart(root, [0.16, 0.05, 0.03], [0, 1.08, 0.2], 0x517192);
+}
+
 function createMobModel(def, hostile, questgiver = false) {
   const root = new THREE.Group();
 
   if (questgiver) {
-    makePart(root, [0.56, 0.9, 0.32], [0, 0.45, 0], 0x3c6fa1);
-    makePart(root, [0.52, 0.52, 0.32], [0, 1.16, 0], 0xe3c5a1);
-    makePart(root, [0.2, 0.55, 0.2], [-0.18, 0.24, 0], 0x2f405b);
-    makePart(root, [0.2, 0.55, 0.2], [0.18, 0.24, 0], 0x2f405b);
+    buildQuestGiver(root);
     return root;
   }
 
-  const bodyColor = def.color;
-  const headColor = hostile ? Math.max(0x333333, bodyColor - 0x232323) : bodyColor + 0x101010;
-
-  makePart(root, [0.66, 0.46, 0.36], [0, 0.58, 0], bodyColor);
-  makePart(root, [0.34, 0.34, 0.34], [0.31, 0.75, 0], headColor);
-  makePart(root, [0.18, 0.28, 0.18], [-0.2, 0.2, 0.12], bodyColor - 0x101010);
-  makePart(root, [0.18, 0.28, 0.18], [0.2, 0.2, 0.12], bodyColor - 0x101010);
-  makePart(root, [0.18, 0.28, 0.18], [-0.2, 0.2, -0.12], bodyColor - 0x101010);
-  makePart(root, [0.18, 0.28, 0.18], [0.2, 0.2, -0.12], bodyColor - 0x101010);
-
-  if (def.flying) {
-    makePart(root, [0.5, 0.06, 0.18], [0, 0.66, 0.24], 0x52d7ff);
-    makePart(root, [0.52, 0.06, 0.18], [0, 0.66, -0.24], 0x4ab9e6);
+  switch (def.key) {
+    case "deer":
+      buildDeer(root);
+      break;
+    case "lizard":
+      buildLizard(root);
+      break;
+    case "parrot":
+      buildParrot(root);
+      break;
+    case "goat":
+      buildGoat(root);
+      break;
+    case "sheep":
+      buildSheep(root);
+      break;
+    case "reindeer":
+      buildReindeer(root);
+      break;
+    case "bandit":
+      buildHumanoid(root, 0x6e4d36, 0xd0a782, true);
+      break;
+    case "raider":
+      buildHumanoid(root, 0x573729, 0xc89a74, true);
+      break;
+    case "sandstalker":
+      buildSandStalker(root);
+      break;
+    case "jaguar":
+      buildJaguar(root);
+      break;
+    case "rockwraith":
+      buildRockWraith(root);
+      break;
+    case "yeti":
+      buildYeti(root);
+      break;
+    default:
+      buildSheep(root);
+      break;
   }
 
-  if (def.key === "yeti") {
-    makePart(root, [0.26, 0.5, 0.2], [-0.42, 0.54, 0], 0xb9cfde);
-    makePart(root, [0.26, 0.5, 0.2], [0.42, 0.54, 0], 0xb9cfde);
-  }
-
-  if (def.key === "bandit" || def.key === "raider") {
-    makePart(root, [0.38, 0.1, 0.38], [0.31, 0.92, 0], 0x1e1e1e);
+  if (hostile) {
+    addPart(root, [0.08, 0.08, 0.08], [0.24, 0.9, 0.2], 0x8f1414);
   }
 
   return root;
@@ -95,7 +250,7 @@ export class MobSystem {
     created.push(this.spawnMob(chunk, biome, nDef, false));
 
     const hostileRoll = hash2D(chunk.cx, chunk.cz, 13003);
-    if (hostileRoll > 0.56) {
+    if (hostileRoll > 0.62) {
       const hDef = HOSTILE_BY_BIOME[biome];
       created.push(this.spawnMob(chunk, biome, hDef, true));
     }

@@ -15,6 +15,7 @@ export const BlockId = {
   VINE: 13,
   GRAVEL: 14,
   MOSS: 15,
+  CASTLE_BRICK: 16,
 };
 
 export const FACE = {
@@ -63,6 +64,12 @@ export const BLOCKS = {
   [BlockId.VINE]: { name: "Vine", solid: false, transparent: true, textures: { all: "vine" } },
   [BlockId.GRAVEL]: { name: "Gravel", solid: true, transparent: false, textures: { all: "gravel" } },
   [BlockId.MOSS]: { name: "Moss", solid: true, transparent: false, textures: { all: "moss" } },
+  [BlockId.CASTLE_BRICK]: {
+    name: "Castle Brick",
+    solid: true,
+    transparent: false,
+    textures: { all: "castle_brick" },
+  },
 };
 
 export function isSolid(id) {

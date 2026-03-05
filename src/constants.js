@@ -10,7 +10,7 @@ export const PLAYER_EYE_HEIGHT = 1.62;
 
 export const WALK_SPEED = 5.2;
 export const SNEAK_SPEED = 2.6;
-export const FLY_SPEED = 50;
+export const FLY_SPEED = 100;
 export const JUMP_VELOCITY = 8.8;
 export const GRAVITY = 26;
 export const TERMINAL_VELOCITY = -55;

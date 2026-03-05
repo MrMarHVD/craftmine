@@ -17,6 +17,13 @@ Biome boundaries are generated using a climate blend (temperature + moisture noi
 - Hostile mobs spawn less frequently and perform attack motions near the player (no player damage yet).
 - Hostile roster includes `Yeti` (Tundra) and `Bandit` (Forest), plus unique hostile variants for the other biomes.
 - Natural examples include sheep, deer, lizards, goats, reindeer, and flying birds (parrot-like jungle mobs).
+- Mobs now use species-specific models with different silhouettes, faces/eyes, limbs, horns/wings, and distinct body proportions.
+
+## Rare Castle Structure
+- Rarely, a large procedural castle generates in the world.
+- Castle layout is assembled from modular pieces: a keep, corridors, multiple room modules, towers, and connected openings.
+- Internal structure includes floors, walls, roofs/battlements, tower interiors, and room pillars.
+- Castle generation is deterministic from the world seed and region coordinates.
 
 ## Quest System (Initial)
 - Some human NPC questgivers spawn in selected biomes (Forest, Plains, Jungle).
