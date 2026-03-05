@@ -11,32 +11,33 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
       const c = world.getColumnData(x, z);
       const y = c.height;
       const above = world.getGeneratedBlockFromChunkData(blocks, cx, cz, x, y + 1, z);
+      const stableSurface = hasStableSurface(world, blocks, cx, cz, x, y, z);
       const h = hash2D(x, z, world.seed + 9001);
       const cluster = valueNoise2D(x * 0.03, z * 0.03, world.seed + 9002);
 
       if (c.dominantBiome === BIOME.FOREST) {
-        if (h > 0.981 && cluster > 0.42 && c.surface === BlockId.GRASS) {
+        if (stableSurface && h > 0.981 && cluster > 0.42 && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 4) | 0), 2, false);
         }
-        if (h > 0.973 && h <= 0.981 && cluster > 0.46 && c.surface === BlockId.GRASS) {
+        if (stableSurface && h > 0.973 && h <= 0.981 && cluster > 0.46 && c.surface === BlockId.GRASS) {
           placeAppleTree(world, blocks, cx, cz, x, y + 1, z, 5 + ((h * 3) | 0));
         }
-        if (above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.93 && h < 0.948) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.93 && h < 0.948) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_RED);
         }
-        if (above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.948 && h < 0.965) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.948 && h < 0.965) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
       }
 
       if (c.dominantBiome === BIOME.JUNGLE) {
-        if (h > 0.972 && cluster > 0.34 && c.surface === BlockId.GRASS) {
+        if (stableSurface && h > 0.972 && cluster > 0.34 && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 6 + ((h * 5) | 0), 3, true);
         }
-        if (above === BlockId.AIR && h > 0.88 && h < 0.94 && c.surface === BlockId.GRASS) {
+        if (stableSurface && above === BlockId.AIR && h > 0.88 && h < 0.94 && c.surface === BlockId.GRASS) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.MOSS);
         }
-        if (above === BlockId.AIR && h > 0.942 && h < 0.957 && c.surface === BlockId.GRASS) {
+        if (stableSurface && above === BlockId.AIR && h > 0.942 && h < 0.957 && c.surface === BlockId.GRASS) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
       }
@@ -74,13 +75,13 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
       }
 
       if (c.dominantBiome === BIOME.PLAINS) {
-        if (above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.86 && h < 0.915) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.86 && h < 0.915) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_RED);
         }
-        if (above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.915 && h < 0.965) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.915 && h < 0.965) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
-        if (h > 0.992 && cluster > 0.45 && c.surface === BlockId.GRASS) {
+        if (stableSurface && h > 0.992 && cluster > 0.45 && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 3) | 0), 2, false);
         }
       }
@@ -95,6 +96,22 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
       }
     }
   }
+}
+
+function hasStableSurface(world, blocks, cx, cz, x, y, z) {
+  const surfaceId = world.getGeneratedBlockFromChunkData(blocks, cx, cz, x, y, z);
+  if (surfaceId === BlockId.AIR || surfaceId === BlockId.WATER) return false;
+
+  // If the column is outside this chunk, defer anchor placement to neighboring chunk generation.
+  const lx = x - cx * CHUNK_SIZE;
+  const lz = z - cz * CHUNK_SIZE;
+  if (lx < 0 || lz < 0 || lx >= CHUNK_SIZE || lz >= CHUNK_SIZE) return false;
+
+  for (let d = 1; d <= 5; d++) {
+    const id = world.getGeneratedBlockFromChunkData(blocks, cx, cz, x, y - d, z);
+    if (id === BlockId.AIR || id === BlockId.WATER) return false;
+  }
+  return true;
 }
 
 function placeTree(world, blocks, cx, cz, x, y, z, trunkH, radius, withVines) {

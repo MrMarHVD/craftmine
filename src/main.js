@@ -58,12 +58,14 @@ const debugSettings = {
   healthEnabled: true,
   agroEnabled: true,
   mapEnabled: true,
+  mapRange: 64,
 };
 
 let health = MAX_HEALTH;
 let incomingDamageCooldown = 0;
 
 player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
+miniMap.setRadiusBlocks(debugSettings.mapRange);
 ui.setupDebugPane(debugSettings, (patch) => {
   if (patch.walkSpeed !== undefined) debugSettings.walkSpeed = patch.walkSpeed;
   if (patch.flySpeed !== undefined) debugSettings.flySpeed = Math.min(300, patch.flySpeed);
@@ -73,9 +75,11 @@ ui.setupDebugPane(debugSettings, (patch) => {
   }
   if (patch.agroEnabled !== undefined) debugSettings.agroEnabled = patch.agroEnabled;
   if (patch.mapEnabled !== undefined) debugSettings.mapEnabled = patch.mapEnabled;
+  if (patch.mapRange !== undefined) debugSettings.mapRange = patch.mapRange;
 
   player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
   miniMap.setVisible(debugSettings.mapEnabled);
+  miniMap.setRadiusBlocks(debugSettings.mapRange);
 });
 miniMap.setVisible(debugSettings.mapEnabled);
 

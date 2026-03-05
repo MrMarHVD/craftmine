@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { BlockId } from "./blocks.js";
 import { BIOME, BIOME_NAME } from "./world.js";
 import { CHUNK_SIZE, RENDER_DISTANCE } from "./constants.js";
 import { floorDiv, hash2D } from "./random.js";
@@ -26,6 +27,17 @@ const HOSTILE_BY_BIOME = {
 };
 
 const INTELLIGENT_HOSTILES = new Set(["bandit", "raider"]);
+
+function findTopSolidY(world, x, z) {
+  const ix = Math.floor(x);
+  const iz = Math.floor(z);
+  for (let y = 127; y >= 1; y--) {
+    const id = world.getBlock(ix, y, iz);
+    const above = world.getBlock(ix, y + 1, iz);
+    if (id !== BlockId.AIR && id !== BlockId.WATER && above === BlockId.AIR) return y;
+  }
+  return 1;
+}
 
 function addPart(parent, size, pos, color) {
   const g = new THREE.BoxGeometry(size[0], size[1], size[2]);
@@ -339,14 +351,14 @@ export class MobSystem {
     if (this.hostileSiteSpawns.has(site.key)) return;
 
     const ids = [];
-    const baseY = this.world.getSurfaceYAt(site.x, site.z);
+    const baseY = findTopSolidY(this.world, site.x, site.z);
 
     for (let i = 0; i < site.groupSize; i++) {
       const a = hash2D(i, site.x, 7801) * Math.PI * 2;
       const r = site.intelligent ? 2.2 + hash2D(i, site.z, 7802) * 4.5 : hash2D(i, site.z, 7803) * 2.5;
       const sx = Math.floor(site.x + Math.cos(a) * r);
       const sz = Math.floor(site.z + Math.sin(a) * r);
-      const sy = this.world.getSurfaceYAt(sx, sz);
+      const sy = findTopSolidY(this.world, sx, sz);
 
       const id = this.spawnHostileAt(site, i, sx, sy, sz, baseY);
       if (id) ids.push(id);
@@ -397,7 +409,7 @@ export class MobSystem {
   spawnMob(chunk, biome, def, hostile) {
     const x = chunk.cx * CHUNK_SIZE + 2 + Math.floor(hash2D(chunk.cx, chunk.cz, hostile ? 443 : 223) * 12);
     const z = chunk.cz * CHUNK_SIZE + 2 + Math.floor(hash2D(chunk.cx, chunk.cz, hostile ? 877 : 557) * 12);
-    const surface = this.world.getSurfaceYAt(x, z);
+    const surface = findTopSolidY(this.world, x, z);
     const { root, rig } = createMobModel(def, hostile, false);
 
     const id = this.nextId++;
@@ -436,7 +448,7 @@ export class MobSystem {
   spawnQuestGiver(chunk, biome) {
     const x = chunk.cx * CHUNK_SIZE + 4 + Math.floor(hash2D(chunk.cx, chunk.cz, 1201) * 8);
     const z = chunk.cz * CHUNK_SIZE + 4 + Math.floor(hash2D(chunk.cx, chunk.cz, 1202) * 8);
-    const surface = this.world.getSurfaceYAt(x, z);
+    const surface = findTopSolidY(this.world, x, z);
     const { root } = createMobModel({ color: 0x3c6fa1 }, false, true);
 
     const id = this.nextId++;
@@ -616,7 +628,7 @@ export class MobSystem {
 
     const sx = Math.floor(p.x);
     const sz = Math.floor(p.z);
-    const surface = this.world.getSurfaceYAt(sx, sz);
+    const surface = findTopSolidY(this.world, sx, sz);
 
     if (!e.flying) {
       const targetY = surface + 1.02;
