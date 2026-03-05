@@ -18,6 +18,9 @@ export class UI {
     this.coinsEl = document.getElementById("coins");
     this.hintEl = document.getElementById("hint");
 
+    this.healthWrapEl = document.getElementById("health-wrap");
+    this.healthFillEl = document.getElementById("health-bar-fill");
+
     this.hotbarEl = document.getElementById("hotbar");
     this.inventoryEl = document.getElementById("inventory");
     this.inventoryGridEl = document.getElementById("inventory-grid");
@@ -26,6 +29,14 @@ export class UI {
     this.dialogueTitleEl = document.getElementById("dialogue-title");
     this.dialogueTextEl = document.getElementById("dialogue-text");
     this.dialogueOptionsEl = document.getElementById("dialogue-options");
+
+    this.debugPaneEl = document.getElementById("debug-pane");
+    this.debugWalkEl = document.getElementById("dbg-walk");
+    this.debugWalkValueEl = document.getElementById("dbg-walk-value");
+    this.debugFlyEl = document.getElementById("dbg-fly");
+    this.debugFlyValueEl = document.getElementById("dbg-fly-value");
+    this.debugHealthEl = document.getElementById("dbg-health");
+    this.debugAgroEl = document.getElementById("dbg-agro");
 
     this.hotbarSize = 8;
     this.inventory = initialInventory.map(slotItemOrEmpty);
@@ -40,6 +51,7 @@ export class UI {
     this.setHotbarSelection(0);
     this.updateCoins(0);
     this.setHint("");
+    this.updateHealth(100, 100, true);
   }
 
   buildHotbar() {
@@ -77,19 +89,40 @@ export class UI {
     this.refreshInventoryLabels();
   }
 
-  refreshHotbarLabels() {
-    for (let i = 0; i < this.hotbarEls.length; i++) {
-      const item = slotItemOrEmpty(this.inventory[i]);
-      const name = item.id === BlockId.AIR ? "Empty" : BLOCKS[item.id].name;
-      const count = item.id === BlockId.AIR ? "" : ` x${item.count}`;
-      this.hotbarEls[i].textContent = `${i + 1} ${name}${count}`;
-    }
+  setupDebugPane(config, onChange) {
+    this.debugWalkEl.value = String(config.walkSpeed);
+    this.debugFlyEl.value = String(config.flySpeed);
+    this.debugHealthEl.checked = !!config.healthEnabled;
+    this.debugAgroEl.checked = !!config.agroEnabled;
+    this.updateDebugValues(config.walkSpeed, config.flySpeed);
+
+    this.debugWalkEl.addEventListener("input", () => {
+      const walkSpeed = Number(this.debugWalkEl.value);
+      this.updateDebugValues(walkSpeed, Number(this.debugFlyEl.value));
+      onChange({ walkSpeed });
+    });
+
+    this.debugFlyEl.addEventListener("input", () => {
+      const flySpeed = Math.min(300, Number(this.debugFlyEl.value));
+      this.updateDebugValues(Number(this.debugWalkEl.value), flySpeed);
+      onChange({ flySpeed });
+    });
+
+    this.debugHealthEl.addEventListener("change", () => onChange({ healthEnabled: this.debugHealthEl.checked }));
+    this.debugAgroEl.addEventListener("change", () => onChange({ agroEnabled: this.debugAgroEl.checked }));
   }
 
-  refreshInventoryLabels() {
-    for (let i = 0; i < this.inventoryEls.length; i++) {
-      this.inventoryEls[i].textContent = itemLabel(this.inventory[i]);
-    }
+  updateDebugValues(walkSpeed, flySpeed) {
+    this.debugWalkValueEl.textContent = `Current: ${walkSpeed.toFixed(1)}`;
+    this.debugFlyValueEl.textContent = `Current: ${flySpeed.toFixed(0)} (max 300)`;
+  }
+
+  isDebugOpen() {
+    return this.debugPaneEl.classList.contains("visible");
+  }
+
+  setDebugVisible(visible) {
+    this.debugPaneEl.classList.toggle("visible", visible);
   }
 
   isInventoryOpen() {
@@ -129,6 +162,13 @@ export class UI {
 
   setHint(text) {
     this.hintEl.textContent = text;
+  }
+
+  updateHealth(current, max, enabled) {
+    this.healthWrapEl.style.display = enabled ? "block" : "none";
+    if (!enabled) return;
+    const pct = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0;
+    this.healthFillEl.style.width = `${(pct * 100).toFixed(1)}%`;
   }
 
   getSelectedBlock() {
@@ -230,5 +270,20 @@ export class UI {
     this.hotbarIndex = index;
     this.hotbarEls.forEach((el, i) => el.classList.toggle("active", i === index));
     this.inventoryEls.forEach((el, i) => el.classList.toggle("active", i === index));
+  }
+
+  refreshHotbarLabels() {
+    for (let i = 0; i < this.hotbarEls.length; i++) {
+      const item = slotItemOrEmpty(this.inventory[i]);
+      const name = item.id === BlockId.AIR ? "Empty" : BLOCKS[item.id].name;
+      const count = item.id === BlockId.AIR ? "" : ` x${item.count}`;
+      this.hotbarEls[i].textContent = `${i + 1} ${name}${count}`;
+    }
+  }
+
+  refreshInventoryLabels() {
+    for (let i = 0; i < this.inventoryEls.length; i++) {
+      this.inventoryEls[i].textContent = itemLabel(this.inventory[i]);
+    }
   }
 }

@@ -16,6 +16,7 @@ export const BlockId = {
   GRAVEL: 14,
   MOSS: 15,
   CASTLE_BRICK: 16,
+  APPLE: 17,
 };
 
 export const FACE = {
@@ -70,6 +71,7 @@ export const BLOCKS = {
     transparent: false,
     textures: { all: "castle_brick" },
   },
+  [BlockId.APPLE]: { name: "Apple", solid: false, transparent: true, textures: { all: "apple" } },
 };
 
 export function isSolid(id) {

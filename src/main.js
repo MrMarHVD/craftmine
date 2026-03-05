@@ -9,6 +9,8 @@ import { createAtlas } from "./textureAtlas.js";
 import { UI } from "./ui.js";
 import { World } from "./world.js";
 
+const MAX_HEALTH = 100;
+
 const canvas = document.getElementById("app");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -57,7 +59,7 @@ const inventory = [
   { id: BlockId.FLOWER_YELLOW, count: 0 },
   { id: BlockId.VINE, count: 0 },
   { id: BlockId.WATER, count: 20 },
-  { id: BlockId.AIR, count: 0 },
+  { id: BlockId.APPLE, count: 0 },
   { id: BlockId.AIR, count: 0 },
   { id: BlockId.AIR, count: 0 },
   { id: BlockId.AIR, count: 0 },
@@ -79,6 +81,29 @@ const ui = new UI(inventory);
 const quests = new QuestSystem(ui, worldSeed + 191);
 const mobs = new MobSystem(scene, world);
 
+const debugSettings = {
+  walkSpeed: 5.2,
+  flySpeed: 11.5,
+  healthEnabled: true,
+  agroEnabled: true,
+};
+
+let health = MAX_HEALTH;
+let incomingDamageCooldown = 0;
+
+player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
+ui.setupDebugPane(debugSettings, (patch) => {
+  if (patch.walkSpeed !== undefined) debugSettings.walkSpeed = patch.walkSpeed;
+  if (patch.flySpeed !== undefined) debugSettings.flySpeed = Math.min(300, patch.flySpeed);
+  if (patch.healthEnabled !== undefined) {
+    debugSettings.healthEnabled = patch.healthEnabled;
+    if (!debugSettings.healthEnabled) health = MAX_HEALTH;
+  }
+  if (patch.agroEnabled !== undefined) debugSettings.agroEnabled = patch.agroEnabled;
+
+  player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
+});
+
 ui.setHotbarSelection(0);
 
 const dir = new THREE.Vector3();
@@ -92,9 +117,10 @@ scene.add(targetBox);
 let selectedIndex = 0;
 let currentTarget = null;
 let nearestQuestGiver = null;
+let spawnPoint = new THREE.Vector3(0, 40, 0);
 
 function isMenuOpen() {
-  return ui.isInventoryOpen() || ui.isDialogueOpen();
+  return ui.isInventoryOpen() || ui.isDialogueOpen() || ui.isDebugOpen();
 }
 
 function refreshOverlayVisibility() {
@@ -112,6 +138,7 @@ function getGroundY(x, z) {
 }
 
 player.position.set(0.5, getGroundY(0, 0) + 2, 0.5);
+spawnPoint.copy(player.position);
 player.syncCamera();
 
 function resize() {
@@ -147,17 +174,35 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  if (e.code === "KeyU") {
+    const next = !ui.isDebugOpen();
+    ui.setDebugVisible(next);
+    if (next) document.exitPointerLock();
+    else if (!ui.isInventoryOpen() && !ui.isDialogueOpen()) canvas.requestPointerLock();
+    refreshOverlayVisibility();
+    return;
+  }
+
   if (e.code === "KeyE") {
     if (ui.isDialogueOpen()) return;
 
     if (ui.isInventoryOpen()) {
       ui.setInventoryVisible(false);
-      canvas.requestPointerLock();
+      if (!ui.isDebugOpen()) canvas.requestPointerLock();
     } else {
       ui.setInventoryVisible(true);
       document.exitPointerLock();
     }
     refreshOverlayVisibility();
+    return;
+  }
+
+  if (e.code === "KeyR") {
+    if (!debugSettings.healthEnabled) return;
+    if (health >= MAX_HEALTH) return;
+    if (ui.consumeItem(BlockId.APPLE, 1)) {
+      health = Math.min(MAX_HEALTH, health + 25);
+    }
     return;
   }
 
@@ -219,7 +264,7 @@ window.addEventListener("mousedown", (e) => {
     if (!canPlaceAt(placeX, placeY, placeZ)) return;
 
     const placeId = ui.getSelectedBlock();
-    if (placeId === BlockId.AIR || placeId === BlockId.BEDROCK) return;
+    if (placeId === BlockId.AIR || placeId === BlockId.BEDROCK || placeId === BlockId.APPLE) return;
     if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
   }
@@ -247,7 +292,27 @@ function tick(now) {
 
   world.rebuildOneChunk();
   world.rebuildOneChunk();
-  mobs.update(player.position, dt, timeSec);
+  mobs.update(player.position, dt, timeSec, debugSettings.agroEnabled);
+
+  if (debugSettings.healthEnabled) {
+    incomingDamageCooldown -= dt;
+    if (debugSettings.agroEnabled && incomingDamageCooldown <= 0) {
+      const attackers = mobs.countHostilesInRange(player.position, 1.8);
+      if (attackers > 0) {
+        health = Math.max(0, health - Math.min(18, attackers * 6));
+        incomingDamageCooldown = 0.45;
+      }
+    }
+
+    if (health <= 0) {
+      health = MAX_HEALTH;
+      player.position.copy(spawnPoint);
+      player.velocity.set(0, 0, 0);
+      player.syncCamera();
+    }
+  } else {
+    health = MAX_HEALTH;
+  }
 
   nearestQuestGiver = mobs.getNearestQuestGiver(player.position, 4.2);
 
@@ -265,7 +330,13 @@ function tick(now) {
     const talkHint = `Press F to talk to ${nearestQuestGiver.name}`;
     hint = hint ? `${hint} | ${talkHint}` : talkHint;
   }
+
+  if (ui.getItemCount(BlockId.APPLE) > 0 && debugSettings.healthEnabled && health < MAX_HEALTH) {
+    hint = hint ? `${hint} | Press R to eat Apple` : "Press R to eat Apple";
+  }
+
   ui.setHint(hint);
+  ui.updateHealth(health, MAX_HEALTH, debugSettings.healthEnabled);
 
   ui.updateMode(player.flyMode);
   ui.updateCoords(player.position);

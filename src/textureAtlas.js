@@ -23,6 +23,7 @@ const TILES = [
   "gravel",
   "moss",
   "castle_brick",
+  "apple",
 ];
 
 function withNoise(ctx, baseColor, variance = 12, alpha = 1) {
@@ -136,6 +137,16 @@ function drawTile(tile) {
       ctx.fillRect(x, 8, 1, 4);
       ctx.fillRect(x + 4, 12, 1, 4);
     }
+  } else if (tile === "apple") {
+    ctx.clearRect(0, 0, TILE, TILE);
+    ctx.fillStyle = "rgba(196,36,36,0.92)";
+    ctx.fillRect(4, 4, 8, 8);
+    ctx.fillStyle = "rgba(232,120,120,0.55)";
+    ctx.fillRect(5, 5, 3, 3);
+    ctx.fillStyle = "rgba(76,138,58,0.8)";
+    ctx.fillRect(7, 2, 2, 2);
+    ctx.fillStyle = "rgba(112,84,38,0.8)";
+    ctx.fillRect(8, 1, 1, 2);
   }
 
   return c;

@@ -18,6 +18,9 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
         if (h > 0.981 && cluster > 0.42 && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 4) | 0), 2, false);
         }
+        if (h > 0.973 && h <= 0.981 && cluster > 0.46 && c.surface === BlockId.GRASS) {
+          placeAppleTree(world, blocks, cx, cz, x, y + 1, z, 5 + ((h * 3) | 0));
+        }
         if (above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.93 && h < 0.948) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_RED);
         }
@@ -119,6 +122,33 @@ function placeTree(world, blocks, cx, cz, x, y, z, trunkH, radius, withVines) {
         const vineLen = 2 + ((vhash * 4) | 0);
         for (let vi = 1; vi <= vineLen; vi++) {
           world.setGeneratedVineIfAir(blocks, cx, cz, lx, ly - vi, lz);
+        }
+      }
+    }
+  }
+}
+
+function placeAppleTree(world, blocks, cx, cz, x, y, z, trunkH) {
+  for (let i = 0; i < trunkH; i++) {
+    world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + i, z, BlockId.LOG);
+  }
+
+  const topY = y + trunkH;
+  const radius = 2;
+  for (let dy = -radius; dy <= radius; dy++) {
+    const r = Math.max(1, radius - Math.abs(dy) + 1);
+    for (let ox = -r; ox <= r; ox++) {
+      for (let oz = -r; oz <= r; oz++) {
+        if (Math.abs(ox) + Math.abs(oz) > r + 1) continue;
+        const lx = x + ox;
+        const ly = topY + dy;
+        const lz = z + oz;
+
+        const fruitRoll = hash2D(lx * 19 + ly, lz * 23 - ly, world.seed + 29011);
+        if (fruitRoll > 0.86 && Math.abs(ox) + Math.abs(oz) >= 2) {
+          world.setGeneratedBlockIfInChunk(blocks, cx, cz, lx, ly, lz, BlockId.APPLE);
+        } else {
+          world.setGeneratedLeafIfAir(blocks, cx, cz, lx, ly, lz);
         }
       }
     }

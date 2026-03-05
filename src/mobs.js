@@ -562,7 +562,7 @@ export class MobSystem {
     }
   }
 
-  updateEntity(e, playerPos, dt, timeSec) {
+  updateEntity(e, playerPos, dt, timeSec, agroEnabled) {
     if (e.kind === "questgiver") {
       e.mesh.position.y = e.homeY + Math.sin(timeSec * 1.9 + e.bobOffset) * 0.06;
       e.mesh.rotation.y += dt * 0.4;
@@ -575,7 +575,7 @@ export class MobSystem {
     const distSq = toPlayerX * toPlayerX + toPlayerZ * toPlayerZ;
     const dist = Math.sqrt(distSq);
 
-    if (e.hostile && dist < 8.8) {
+    if (e.hostile && agroEnabled && dist < 8.8) {
       const inv = dist > 0.001 ? 1 / dist : 0;
       e.vx = toPlayerX * inv * e.speed * 1.25;
       e.vz = toPlayerZ * inv * e.speed * 1.25;
@@ -635,7 +635,7 @@ export class MobSystem {
     this.animateEntity(e, dt, speed2D, timeSec);
   }
 
-  update(playerPos, dt, timeSec) {
+  update(playerPos, dt, timeSec, agroEnabled = true) {
     this.spawnTick += dt;
     if (this.spawnTick >= 1.0) {
       this.syncSpawns(playerPos);
@@ -643,8 +643,21 @@ export class MobSystem {
     }
 
     for (const e of this.entities.values()) {
-      this.updateEntity(e, playerPos, dt, timeSec);
+      this.updateEntity(e, playerPos, dt, timeSec, agroEnabled);
     }
+  }
+
+  countHostilesInRange(playerPos, radius) {
+    const r2 = radius * radius;
+    let count = 0;
+    for (const e of this.entities.values()) {
+      if (!e.hostile || e.kind !== "mob") continue;
+      const dx = e.mesh.position.x - playerPos.x;
+      const dy = e.mesh.position.y - playerPos.y;
+      const dz = e.mesh.position.z - playerPos.z;
+      if (dx * dx + dy * dy + dz * dz <= r2) count++;
+    }
+    return count;
   }
 
   getNearestQuestGiver(playerPos, maxDistance = 4) {

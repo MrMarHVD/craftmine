@@ -46,9 +46,18 @@ export class Player {
     this.tmpForward = new THREE.Vector3();
     this.tmpRight = new THREE.Vector3();
     this.tmpMove = new THREE.Vector3();
+    this.walkSpeed = WALK_SPEED;
+    this.sneakSpeed = SNEAK_SPEED;
+    this.flySpeed = FLY_SPEED;
 
     this.bindInput();
     this.syncCamera();
+  }
+
+  setMovementSpeeds(walkSpeed, flySpeed) {
+    this.walkSpeed = Math.max(1, walkSpeed);
+    this.sneakSpeed = Math.max(0.5, this.walkSpeed * 0.5);
+    this.flySpeed = Math.max(1, Math.min(300, flySpeed));
   }
 
   bindInput() {
@@ -164,14 +173,14 @@ export class Player {
     if (this.tmpMove.lengthSq() > 0) this.tmpMove.normalize();
 
     if (this.flyMode) {
-      const speed = FLY_SPEED;
+      const speed = this.flySpeed;
       this.velocity.x = this.tmpMove.x * speed;
       this.velocity.z = this.tmpMove.z * speed;
       this.velocity.y = 0;
       if (this.keys.Space) this.velocity.y += speed;
       if (this.keys.ShiftLeft || this.keys.ShiftRight) this.velocity.y -= speed;
     } else {
-      const speed = this.keys.ShiftLeft || this.keys.ShiftRight ? SNEAK_SPEED : WALK_SPEED;
+      const speed = this.keys.ShiftLeft || this.keys.ShiftRight ? this.sneakSpeed : this.walkSpeed;
       this.velocity.x = this.tmpMove.x * speed;
       this.velocity.z = this.tmpMove.z * speed;
       this.velocity.y = Math.max(TERMINAL_VELOCITY, this.velocity.y - GRAVITY * dt);

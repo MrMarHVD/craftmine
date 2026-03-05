@@ -74,10 +74,13 @@ npm run preview
 - `Esc`: release pointer lock
 - `E`: open/close inventory
 - `F`: interact/talk with nearby questgiver
+- `U`: open/close debug pane
+- `R`: eat one apple (heals health when health system is enabled)
 - Left click: break targeted block
 - Right click: place selected block
 - Mouse wheel or number keys (`1-8`): hotbar selection
 - Inventory has 30 slots; clicking an inventory slot maps that item to the currently active hotbar slot
+- Debug pane allows runtime tuning of walk/fly speed (fly capped at 300), health system toggle, and hostile agro toggle
 
 ## Requirements Mapping
 - Deterministic seeded generation: fixed seed in `src/main.js` (`worldSeed = 20260304`)
@@ -92,6 +95,8 @@ npm run preview
 - UI: crosshair, hotbar, inventory panel (30 slots), mode indicator, coordinates, FPS, pointer-lock instruction overlay
 - Mobs: biome-based natural + hostile mob spawning and simple AI behaviors
 - Quests: questgiver NPC interaction with dialogue and coin rewards
+- Health system: optional red health bar with hostile hit damage (toggleable in debug pane)
+- Forest bonus tree: apple trees with apple blocks that drop edible apples for healing
 
 ## Project Layout
 - `src/main.js`: app bootstrap, render loop, interactions

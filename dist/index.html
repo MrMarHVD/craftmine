@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voxel World Engine</title>
-    <script type="module" crossorigin src="/assets/index-D2ySFosf.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B9ycHLW0.css">
+    <script type="module" crossorigin src="/assets/index-BOiz1fqV.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DcUwbklU.css">
   </head>
   <body>
     <div id="game-ui">
@@ -14,6 +14,7 @@
         <p>Click to play (Pointer Lock)</p>
         <p>Move: WASD | Look: Mouse | Jump: Space | Fly: Double Space</p>
         <p>Break: Left Click | Place: Right Click | Select: 1-8 or Scroll | Inventory: E | Talk: F</p>
+        <p>Eat Apple: R | Debug Pane: `</p>
       </div>
       <div id="crosshair">+</div>
       <div id="hud-top-left">
@@ -22,6 +23,10 @@
         <div id="fps">FPS: 0</div>
         <div id="coins">Coins: 0</div>
         <div id="hint"></div>
+        <div id="health-wrap">
+          <div id="health-label">Health</div>
+          <div id="health-bar-bg"><div id="health-bar-fill"></div></div>
+        </div>
       </div>
       <div id="hotbar"></div>
       <div id="inventory">
@@ -32,6 +37,15 @@
         <div id="dialogue-title"></div>
         <div id="dialogue-text"></div>
         <div id="dialogue-options"></div>
+      </div>
+      <div id="debug-pane">
+        <div class="debug-title">Debug Controls</div>
+        <label class="debug-row">Walk Speed <input id="dbg-walk" type="range" min="1" max="40" step="0.5" /></label>
+        <div id="dbg-walk-value" class="debug-value"></div>
+        <label class="debug-row">Fly Speed <input id="dbg-fly" type="range" min="1" max="300" step="1" /></label>
+        <div id="dbg-fly-value" class="debug-value"></div>
+        <label class="debug-row checkbox"><input id="dbg-health" type="checkbox" /> Health System</label>
+        <label class="debug-row checkbox"><input id="dbg-agro" type="checkbox" /> Hostile Agro</label>
       </div>
     </div>
     <canvas id="app"></canvas>
