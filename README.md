@@ -87,7 +87,6 @@ npm run preview
 - You now start with an empty inventory and gather items by breaking corresponding world blocks
 - Inventory and hotbar slots display item icons for all collectible/placeable block/item types
 - Debug pane allows runtime tuning of walk/fly speed (fly capped at 300), health system toggle, and hostile agro toggle
-- Debug pane also includes a mini-map on/off toggle
 
 ## Requirements Mapping
 - Deterministic seeded generation: fixed seed in `src/main.js` (`worldSeed = 20260304`)
