@@ -97,7 +97,12 @@ npm run preview
 - `src/main.js`: app bootstrap, render loop, interactions
 - `src/mobs.js`: biome mob spawning, behavior updates, questgiver entities
 - `src/quests.js`: quest state, dialogue flows, reward handling
-- `src/world.js`: generation, chunk cache/load/unload, dirty rebuild scheduling
+- `src/world.js`: public world exports (barrel)
+- `src/world/World.js`: world runtime, chunk cache/load/unload, dirty rebuild scheduling
+- `src/world/biomes.js`: biome definitions and climate/column calculations
+- `src/world/features.js`: procedural biome feature placement (trees/plants/spires)
+- `src/world/castles.js`: rare modular castle generation/stamping
+- `src/world/grid.js`: shared world grid indexing/key helpers
 - `src/chunkMesher.js`: chunk mesh generation and face visibility rules
 - `src/player.js`: movement, camera orientation, physics/collision
 - `src/raycast.js`: block targeting ray traversal
