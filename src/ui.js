@@ -163,6 +163,7 @@ export class UI {
     this.debugFlyValueEl = document.getElementById("dbg-fly-value");
     this.debugHealthEl = document.getElementById("dbg-health");
     this.debugAgroEl = document.getElementById("dbg-agro");
+    this.debugMapEl = document.getElementById("dbg-map");
 
     this.hotbarSize = 8;
     this.inventory = initialInventory.map(slotItemOrEmpty);
@@ -250,6 +251,7 @@ export class UI {
     this.debugFlyEl.value = String(config.flySpeed);
     this.debugHealthEl.checked = !!config.healthEnabled;
     this.debugAgroEl.checked = !!config.agroEnabled;
+    this.debugMapEl.checked = config.mapEnabled !== false;
     this.updateDebugValues(config.walkSpeed, config.flySpeed);
 
     this.debugWalkEl.addEventListener("input", () => {
@@ -266,6 +268,7 @@ export class UI {
 
     this.debugHealthEl.addEventListener("change", () => onChange({ healthEnabled: this.debugHealthEl.checked }));
     this.debugAgroEl.addEventListener("change", () => onChange({ agroEnabled: this.debugAgroEl.checked }));
+    this.debugMapEl.addEventListener("change", () => onChange({ mapEnabled: this.debugMapEl.checked }));
   }
 
   updateDebugValues(walkSpeed, flySpeed) {

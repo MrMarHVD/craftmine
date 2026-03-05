@@ -5,6 +5,7 @@ import { CHUNK_SIZE, RENDER_DISTANCE, SEA_LEVEL, WORLD_HEIGHT } from "../constan
 import { floorDiv, mod } from "../random.js";
 import { BIOME, BIOME_NAME, getBiomeBlend, getClimate, getColumnData } from "./biomes.js";
 import { applyCastlesToChunk } from "./castles.js";
+import { applyTerrainCarvers } from "./carvers.js";
 import { populateFeatures } from "./features.js";
 import { chunkKey, index3D } from "./grid.js";
 
@@ -21,6 +22,7 @@ export class World {
     this.loaded = new Map();
     this.buildQueue = [];
     this.castleCache = new Map();
+    this.ravineCache = new Map();
 
     this.materialOpaque = null;
     this.materialTransparent = null;
@@ -83,6 +85,7 @@ export class World {
       }
     }
 
+    applyTerrainCarvers(this, blocks, cx, cz, worldX0, worldZ0);
     populateFeatures(this, blocks, cx, cz, worldX0, worldZ0);
     applyCastlesToChunk(this, blocks, cx, cz, worldX0, worldZ0);
 

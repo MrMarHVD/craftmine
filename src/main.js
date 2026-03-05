@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { BlockId, isBreakable, isSolid } from "./blocks.js";
 import { CHUNK_SIZE, REACH_DISTANCE } from "./constants.js";
 import { MobSystem } from "./mobs.js";
+import { MiniMap3D } from "./minimap.js";
 import { Player } from "./player.js";
 import { QuestSystem } from "./quests.js";
 import { voxelRaycast } from "./raycast.js";
@@ -49,12 +50,14 @@ const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 
 const ui = new UI(inventory);
 const quests = new QuestSystem(ui, worldSeed + 191);
 const mobs = new MobSystem(scene, world);
+const miniMap = new MiniMap3D(document.getElementById("minimap-canvas"), world);
 
 const debugSettings = {
   walkSpeed: 5.2,
   flySpeed: 11.5,
   healthEnabled: true,
   agroEnabled: true,
+  mapEnabled: true,
 };
 
 let health = MAX_HEALTH;
@@ -69,9 +72,12 @@ ui.setupDebugPane(debugSettings, (patch) => {
     if (!debugSettings.healthEnabled) health = MAX_HEALTH;
   }
   if (patch.agroEnabled !== undefined) debugSettings.agroEnabled = patch.agroEnabled;
+  if (patch.mapEnabled !== undefined) debugSettings.mapEnabled = patch.mapEnabled;
 
   player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
+  miniMap.setVisible(debugSettings.mapEnabled);
 });
+miniMap.setVisible(debugSettings.mapEnabled);
 
 ui.setHotbarSelection(0);
 
@@ -310,6 +316,7 @@ function tick(now) {
   ui.updateMode(player.flyMode);
   ui.updateCoords(player.position);
   refreshOverlayVisibility();
+  miniMap.update(player.position, dt);
 
   fpsAccum += dt;
   fpsFrames++;

@@ -12,6 +12,10 @@ Standalone browser voxel engine implemented with custom world/chunk generation, 
 
 Biome boundaries are generated using a climate blend (temperature + moisture noise fields), so transitions are smooth and not straight-line cuts.
 
+## Terrain Extras
+- Random ravines are procedurally carved into terrain.
+- Enterable caves are generated, with high-probability continuation into larger underground cave systems and branching routes.
+
 ## Mob System
 - Each biome has biome-specific natural wildlife and a biome-specific hostile mob.
 - Hostile mobs now spawn from rare long-interval hostile sites (roughly 200-1000+ block spacing depending on region rolls), not random per-chunk placement.
@@ -83,6 +87,7 @@ npm run preview
 - You now start with an empty inventory and gather items by breaking corresponding world blocks
 - Inventory and hotbar slots display item icons for all collectible/placeable block/item types
 - Debug pane allows runtime tuning of walk/fly speed (fly capped at 300), health system toggle, and hostile agro toggle
+- Debug pane also includes a mini-map on/off toggle
 
 ## Requirements Mapping
 - Deterministic seeded generation: fixed seed in `src/main.js` (`worldSeed = 20260304`)
