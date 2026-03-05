@@ -80,6 +80,8 @@ npm run preview
 - Right click: place selected block
 - Mouse wheel or number keys (`1-8`): hotbar selection
 - Inventory has 30 slots; clicking an inventory slot maps that item to the currently active hotbar slot
+- You now start with an empty inventory and gather items by breaking corresponding world blocks
+- Inventory and hotbar slots display item icons for all collectible/placeable block/item types
 - Debug pane allows runtime tuning of walk/fly speed (fly capped at 300), health system toggle, and hostile agro toggle
 
 ## Requirements Mapping

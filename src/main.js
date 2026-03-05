@@ -44,38 +44,7 @@ world.setupMaterials(matOpaque, matTransparent);
 
 const player = new Player(camera, canvas);
 
-const inventory = [
-  { id: BlockId.GRASS, count: 64 },
-  { id: BlockId.DIRT, count: 64 },
-  { id: BlockId.STONE, count: 64 },
-  { id: BlockId.SAND, count: 64 },
-  { id: BlockId.LOG, count: 64 },
-  { id: BlockId.LEAVES, count: 64 },
-  { id: BlockId.CACTUS, count: 32 },
-  { id: BlockId.SNOW, count: 64 },
-  { id: BlockId.MOSS, count: 36 },
-  { id: BlockId.GRAVEL, count: 48 },
-  { id: BlockId.FLOWER_RED, count: 0 },
-  { id: BlockId.FLOWER_YELLOW, count: 0 },
-  { id: BlockId.VINE, count: 0 },
-  { id: BlockId.WATER, count: 20 },
-  { id: BlockId.APPLE, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-  { id: BlockId.AIR, count: 0 },
-];
+const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 }));
 
 const ui = new UI(inventory);
 const quests = new QuestSystem(ui, worldSeed + 191);

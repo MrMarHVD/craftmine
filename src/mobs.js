@@ -631,7 +631,7 @@ export class MobSystem {
 
     this.tmpDir.set(e.vx, 0, e.vz);
     const speed2D = this.tmpDir.length();
-    if (speed2D > 0.001) e.mesh.rotation.y = Math.atan2(e.vx, e.vz);
+    if (speed2D > 0.001) e.mesh.rotation.y = -Math.atan2(e.vz, e.vx);
     this.animateEntity(e, dt, speed2D, timeSec);
   }
 
