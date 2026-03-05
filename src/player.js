@@ -76,6 +76,7 @@ export class Player {
 
     document.addEventListener("keydown", (e) => {
       if (e.code in this.keys) {
+        if (e.repeat) return;
         if (e.code === "Space") {
           const now = performance.now();
           if (now - this.lastSpaceTap <= DOUBLE_TAP_MS) {
