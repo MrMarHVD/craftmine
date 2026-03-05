@@ -14,10 +14,13 @@ Biome boundaries are generated using a climate blend (temperature + moisture noi
 
 ## Mob System
 - Each biome has biome-specific natural wildlife and a biome-specific hostile mob.
-- Hostile mobs spawn less frequently and perform attack motions near the player (no player damage yet).
+- Hostile mobs now spawn from rare long-interval hostile sites (roughly 200-1000+ block spacing depending on region rolls), not random per-chunk placement.
+- Bandits/raiders spawn in groups at those sites and stay around their group area until the player enters aggro range.
+- Hostile mobs perform attack motions near the player (no player damage yet).
 - Hostile roster includes `Yeti` (Tundra) and `Bandit` (Forest), plus unique hostile variants for the other biomes.
 - Natural examples include sheep, deer, lizards, goats, reindeer, and flying birds (parrot-like jungle mobs).
 - Mobs now use species-specific models with different silhouettes, faces/eyes, limbs, horns/wings, and distinct body proportions.
+- Mobs have walk/fly idle animations (leg/arm gait, wing flaps, tail/head motion) tied to movement.
 
 ## Rare Castle Structure
 - Rarely, a large procedural castle generates in the world.
