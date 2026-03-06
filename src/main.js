@@ -87,7 +87,7 @@ const debugSettings = {
   flySpeed: 11.5,
   mapWidthBlocks: 96,
   mapHeightBlocks: 96,
-  bgmVolume: 0.45,
+  bgmVolume: 0.1,
   healthEnabled: true,
   agroEnabled: true,
 };
