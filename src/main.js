@@ -595,7 +595,7 @@ function tick(now) {
     fpsFrames = 0;
   }
 
-  terrainMap.render(world, player.position, timeSec);
+  terrainMap.render(world, player.position, syncedTimeSec);
   remotePlayers.update(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
