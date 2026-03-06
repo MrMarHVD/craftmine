@@ -21,6 +21,9 @@ import { QuestSystem } from "./quests/QuestSystem.js";
 import { voxelRaycast } from "./utils/raycast.js";
 import { createAtlas } from "./rendering/textureAtlas.js";
 import { CloudSystem } from "./rendering/CloudSystem.js";
+import { NetworkClient } from "./multiplayer/NetworkClient.js";
+import { makeDefaultPlayerName } from "./multiplayer/protocol.js";
+import { RemotePlayers } from "./multiplayer/RemotePlayers.js";
 import bgmDefaultTrack from "./audio/bgm/bgm_default.mp3";
 import { TerrainMapRenderer } from "./ui/TerrainMapRenderer.js";
 import { UI } from "./ui/UI.js";
@@ -75,6 +78,44 @@ const mobs = new MobSystem(scene, world, {
     ui.addItem(payload.dropItem, 1);
   },
 });
+const remotePlayers = new RemotePlayers(scene, () => net?.playerId ?? null);
+
+function getOrCreatePlayerName() {
+  const key = "voxel_player_name";
+  const existing = localStorage.getItem(key);
+  if (existing && existing.trim()) return existing.trim();
+  const generated = makeDefaultPlayerName();
+  localStorage.setItem(key, generated);
+  return generated;
+}
+
+let netStatus = "connecting";
+const net = new NetworkClient({
+  playerName: getOrCreatePlayerName(),
+  onStatus: (s) => {
+    netStatus = s;
+  },
+  onWelcome: (msg) => {
+    netStatus = "connected";
+    remotePlayers.applyWelcome(msg.players ?? []);
+    for (const b of msg.blocks ?? []) {
+      world.setBlock(b.x, b.y, b.z, b.id);
+    }
+  },
+  onPlayerJoin: (pl) => {
+    remotePlayers.ensurePlayer(pl.id, pl);
+  },
+  onPlayerLeave: (id) => {
+    remotePlayers.removePlayer(id);
+  },
+  onPlayersSnapshot: (players) => {
+    remotePlayers.applySnapshot(players);
+  },
+  onBlockSet: (msg) => {
+    world.setBlock(msg.x, msg.y, msg.z, msg.id);
+  },
+});
+net.connect();
 
 /**
  * Runtime configuration object that mirrors the values shown in the debug pane.
@@ -392,6 +433,7 @@ window.addEventListener("mousedown", (e) => {
     if (PLACE_BLOCK_BLACKLIST.has(placeId)) return;
     if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
+    net.sendBlockSet(placeX, placeY, placeZ, placeId);
   }
 });
 
@@ -439,10 +481,19 @@ function tick(now) {
   attackCooldown = Math.max(0, attackCooldown - dt);
   const daylight = updateDayNight(timeSec);
   clouds.update(player.position, dt, timeSec, daylight);
+  net.tick(dt);
 
   if (!isMenuOpen()) {
     player.update(world, dt);
   }
+  net.setLocalState({
+    x: player.position.x,
+    y: player.position.y,
+    z: player.position.z,
+    yaw: player.yaw,
+    pitch: player.pitch,
+    flyMode: player.flyMode,
+  });
 
   chunkTick += dt;
   if (chunkTick >= 0.14) {
@@ -478,7 +529,19 @@ function tick(now) {
 
   camera.getWorldDirection(dir);
   currentTarget = voxelRaycast(world, camera.position, dir, REACH_DISTANCE);
-  updateBreakMining(dt, breakState, canvas, currentTarget, world, ui, crackOverlay, crackOverlayMat, crackTextures, isMenuOpen);
+  updateBreakMining(
+    dt,
+    breakState,
+    canvas,
+    currentTarget,
+    world,
+    ui,
+    crackOverlay,
+    crackOverlayMat,
+    crackTextures,
+    isMenuOpen,
+    (x, y, z) => net.sendBlockSet(x, y, z, BlockId.AIR)
+  );
   if (currentTarget && !isMenuOpen()) {
     targetBox.visible = true;
     targetBox.position.set(currentTarget.x + 0.5, currentTarget.y + 0.5, currentTarget.z + 0.5);
@@ -487,6 +550,8 @@ function tick(now) {
   }
 
   let hint = quests.getActiveQuestText();
+  const netHint = netStatus === "connected" ? "MP: Online" : "MP: Offline";
+  hint = hint ? `${hint} | ${netHint}` : netHint;
   if (nearestQuestGiver && !ui.isInventoryOpen()) {
     const talkHint = `Press F to talk to ${nearestQuestGiver.name}`;
     hint = hint ? `${hint} | ${talkHint}` : talkHint;
@@ -512,6 +577,7 @@ function tick(now) {
   }
 
   terrainMap.render(world, player.position, timeSec);
+  remotePlayers.update(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }

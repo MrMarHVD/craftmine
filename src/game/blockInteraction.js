@@ -177,8 +177,21 @@ export function startOrContinueBreakTarget(target, state, crackOverlay, crackOve
  * @param {THREE.MeshBasicMaterial} crackOverlayMat - The overlay material.
  * @param {THREE.CanvasTexture[]} crackTextures - Array of staged crack textures.
  * @param {function(): boolean} isMenuOpen - Returns `true` if any menu is currently open.
+ * @param {function(number, number, number, number): void} [onBlockBroken] - Optional callback `(x, y, z, id)` when a block is successfully broken.
  */
-export function updateBreakMining(dt, state, canvas, currentTarget, world, ui, crackOverlay, crackOverlayMat, crackTextures, isMenuOpen) {
+export function updateBreakMining(
+  dt,
+  state,
+  canvas,
+  currentTarget,
+  world,
+  ui,
+  crackOverlay,
+  crackOverlayMat,
+  crackTextures,
+  isMenuOpen,
+  onBlockBroken = null
+) {
   if (state.suppressBreakUntilMouseUp || !state.leftMouseDown) {
     clearBreakState(state, crackOverlay);
     return;
@@ -203,8 +216,10 @@ export function updateBreakMining(dt, state, canvas, currentTarget, world, ui, c
   crackOverlay.visible = true;
 
   if (state.breakState.progress >= 1) {
-    world.setBlock(state.breakState.x, state.breakState.y, state.breakState.z, BlockId.AIR);
-    ui.addItem(state.breakState.id, 1);
+    const { x, y, z, id } = state.breakState;
+    world.setBlock(x, y, z, BlockId.AIR);
+    ui.addItem(id, 1);
+    if (onBlockBroken) onBlockBroken(x, y, z, id);
     state.breakState = null;
     crackOverlay.visible = false;
   }

@@ -1,0 +1,10 @@
+name = "craftmine"
+main = "worker.js"
+compatibility_date = "2026-03-06"
+
+[durable_objects]
+bindings = [{ name = "WORLD_ROOM", class_name = "WorldRoom" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["WorldRoom"]
