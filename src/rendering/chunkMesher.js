@@ -13,6 +13,8 @@ import * as THREE from "three";
 import { BLOCKS, BlockId, FACE } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 
+const SKY_SAMPLE_RADIUS = 4;
+
 /**
  * Per-face geometry definitions. Each entry specifies the face direction
  * (used for UV lookup), the outward normal (used for lighting), and the four
@@ -140,10 +142,11 @@ function isSkyOccluder(id) {
 }
 
 function buildTopOccluderMap(world, baseX, baseZ) {
-  const stride = CHUNK_SIZE + 2;
+  const margin = SKY_SAMPLE_RADIUS + 1;
+  const stride = CHUNK_SIZE + margin * 2;
   const top = new Int16Array(stride * stride);
-  for (let lz = -1; lz <= CHUNK_SIZE; lz++) {
-    for (let lx = -1; lx <= CHUNK_SIZE; lx++) {
+  for (let lz = -margin; lz < CHUNK_SIZE + margin; lz++) {
+    for (let lx = -margin; lx < CHUNK_SIZE + margin; lx++) {
       const x = baseX + lx;
       const z = baseZ + lz;
       let topY = -1;
@@ -154,10 +157,10 @@ function buildTopOccluderMap(world, baseX, baseZ) {
           break;
         }
       }
-      top[(lz + 1) * stride + (lx + 1)] = topY;
+      top[(lz + margin) * stride + (lx + margin)] = topY;
     }
   }
-  return { top, stride };
+  return { top, stride, margin };
 }
 
 function getFaceShade(def) {
@@ -170,14 +173,35 @@ function getFaceShade(def) {
 function computeFaceLight(lx, y, lz, def, occluders) {
   const sx = lx + (def.normal[0] > 0 ? 1 : def.normal[0] < 0 ? -1 : 0);
   const sz = lz + (def.normal[2] > 0 ? 1 : def.normal[2] < 0 ? -1 : 0);
-  const topY = occluders.top[(sz + 1) * occluders.stride + (sx + 1)];
+  const topY = occluders.top[(sz + occluders.margin) * occluders.stride + (sx + occluders.margin)];
   const sampleY = y + (def.normal[1] > 0 ? 1 : 0);
   const skyDepth = Math.max(0, topY - sampleY);
 
-  // Exponential falloff gives smooth "gets darker underground" behavior.
+  // Exponential depth falloff gives smooth "darker underground/covered" behavior.
   let skylight = Math.exp(-skyDepth * 0.1);
-  skylight = Math.max(0.12, Math.min(1, skylight));
-  return skylight * getFaceShade(def);
+  skylight = Math.max(0.05, Math.min(1, skylight));
+
+  // Local openness estimate so ravines with tall nearby walls are darker even if directly open above.
+  let weightedBlock = 0;
+  let totalWeight = 0;
+  for (let dz = -SKY_SAMPLE_RADIUS; dz <= SKY_SAMPLE_RADIUS; dz++) {
+    for (let dx = -SKY_SAMPLE_RADIUS; dx <= SKY_SAMPLE_RADIUS; dx++) {
+      const dist2 = dx * dx + dz * dz;
+      if (dist2 > SKY_SAMPLE_RADIUS * SKY_SAMPLE_RADIUS) continue;
+      const weight = 1 / (1 + dist2 * 0.38);
+      const nearTop =
+        occluders.top[(sz + dz + occluders.margin) * occluders.stride + (sx + dx + occluders.margin)];
+      if (nearTop > sampleY) {
+        const dh = nearTop - sampleY;
+        const block = Math.min(1, dh / (Math.sqrt(dist2) + 1.2));
+        weightedBlock += block * weight;
+      }
+      totalWeight += weight;
+    }
+  }
+  const openness = totalWeight > 0 ? 1 - weightedBlock / totalWeight : 1;
+  const opennessFactor = 0.34 + Math.max(0, Math.min(1, openness)) * 0.66;
+  return skylight * opennessFactor * getFaceShade(def);
 }
 
 /**

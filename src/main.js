@@ -120,7 +120,7 @@ const targetBox = createTargetBox(scene);
 const crackTextures = createCrackTextures();
 const { crackOverlay, crackOverlayMat } = createCrackOverlay(scene, crackTextures);
 const skyDayColor = new THREE.Color(0x89cfff);
-const skyNightColor = new THREE.Color(0x050713);
+const skyNightColor = new THREE.Color(0x000000);
 const skyBlendColor = new THREE.Color();
 
 /**
@@ -216,9 +216,10 @@ function updateDayNight(timeSec) {
   sunLight.target.position.set(player.position.x, player.position.y, player.position.z);
   sunLight.target.updateMatrixWorld();
 
-  const daylight = smoothstep(-0.18, 0.22, altitude);
-  sunLight.intensity = 0.02 + daylight * 1.05;
-  ambientLight.intensity = 0.08 + daylight * 0.38;
+  // Steep twilight while preserving a small moonlight floor at night.
+  const daylight = smoothstep(-0.03, 0.2, altitude);
+  sunLight.intensity = 0.02 + daylight * 1.06;
+  ambientLight.intensity = 0.05 + daylight * 0.3;
   sunLight.castShadow = daylight > 0.03;
 
   const skySunDistance = 92;
@@ -231,7 +232,7 @@ function updateDayNight(timeSec) {
     player.position.y + dirY * skySunDistance,
     player.position.z + dirZ * skySunDistance
   );
-  const sunVisible = altitude > -0.1;
+  const sunVisible = altitude > -0.03;
   sunVisual.visible = sunVisible;
   if (sunVisible) {
     const glow = sunVisual.children[0];
