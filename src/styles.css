@@ -58,6 +58,57 @@ body {
   display: flex;
 }
 
+#name-prompt {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
+}
+
+#name-prompt.visible {
+  display: flex;
+}
+
+#name-prompt-card {
+  width: min(360px, 92vw);
+  background: rgba(11, 17, 26, 0.95);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.name-title {
+  font-size: 18px;
+  color: #f2f6fb;
+}
+
+#name-input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  color: #f3f7fc;
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+#name-confirm {
+  background: rgba(255, 221, 130, 0.92);
+  color: #201203;
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 #overlay h1 {
   margin: 0 0 8px 0;
   font-size: 42px;

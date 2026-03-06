@@ -78,7 +78,11 @@ const mobs = new MobSystem(scene, world, {
     ui.addItem(payload.dropItem, 1);
   },
 });
+let net = null;
 const remotePlayers = new RemotePlayers(scene, () => net?.playerId ?? null);
+const namePromptEl = document.getElementById("name-prompt");
+const nameInputEl = document.getElementById("name-input");
+const nameConfirmEl = document.getElementById("name-confirm");
 
 function getOrCreatePlayerName() {
   const key = "voxel_player_name";
@@ -89,33 +93,43 @@ function getOrCreatePlayerName() {
   return generated;
 }
 
-let netStatus = "connecting";
-const net = new NetworkClient({
-  playerName: getOrCreatePlayerName(),
-  onStatus: (s) => {
-    netStatus = s;
-  },
-  onWelcome: (msg) => {
-    netStatus = "connected";
-    remotePlayers.applyWelcome(msg.players ?? []);
-    for (const b of msg.blocks ?? []) {
-      world.setBlock(b.x, b.y, b.z, b.id);
-    }
-  },
-  onPlayerJoin: (pl) => {
-    remotePlayers.ensurePlayer(pl.id, pl);
-  },
-  onPlayerLeave: (id) => {
-    remotePlayers.removePlayer(id);
-  },
-  onPlayersSnapshot: (players) => {
-    remotePlayers.applySnapshot(players);
-  },
-  onBlockSet: (msg) => {
-    world.setBlock(msg.x, msg.y, msg.z, msg.id);
-  },
-});
-net.connect();
+let netStatus = "offline";
+let sessionStarted = false;
+
+function setNamePromptVisible(visible) {
+  namePromptEl.classList.toggle("visible", visible);
+}
+
+function startMultiplayerSession(playerName) {
+  if (net) net.close();
+  netStatus = "connecting";
+  net = new NetworkClient({
+    playerName,
+    onStatus: (s) => {
+      netStatus = s;
+    },
+    onWelcome: (msg) => {
+      netStatus = "connected";
+      remotePlayers.applyWelcome(msg.players ?? []);
+      for (const b of msg.blocks ?? []) {
+        world.setBlock(b.x, b.y, b.z, b.id);
+      }
+    },
+    onPlayerJoin: (pl) => {
+      remotePlayers.ensurePlayer(pl.id, pl);
+    },
+    onPlayerLeave: (id) => {
+      remotePlayers.removePlayer(id);
+    },
+    onPlayersSnapshot: (players) => {
+      remotePlayers.applySnapshot(players);
+    },
+    onBlockSet: (msg) => {
+      world.setBlock(msg.x, msg.y, msg.z, msg.id);
+    },
+  });
+  net.connect();
+}
 
 /**
  * Runtime configuration object that mirrors the values shown in the debug pane.
@@ -212,7 +226,7 @@ let spawnPoint = new THREE.Vector3(0, 40, 0);
  * @returns {boolean}
  */
 function isMenuOpen() {
-  return ui.isInventoryOpen() || ui.isDialogueOpen() || ui.isDebugOpen();
+  return ui.isInventoryOpen() || ui.isDialogueOpen() || ui.isDebugOpen() || !sessionStarted;
 }
 
 /**
@@ -314,6 +328,7 @@ window.addEventListener("pointerdown", tryStartBgm);
 window.addEventListener("keydown", tryStartBgm);
 
 canvas.addEventListener("click", () => {
+  if (!sessionStarted) return;
   if (isMenuOpen()) return;
   if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
 });
@@ -394,6 +409,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("mousedown", (e) => {
+  if (!sessionStarted) return;
   if (document.pointerLockElement !== canvas || isMenuOpen()) return;
 
   if (e.button === 0) {
@@ -433,7 +449,7 @@ window.addEventListener("mousedown", (e) => {
     if (PLACE_BLOCK_BLACKLIST.has(placeId)) return;
     if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
-    net.sendBlockSet(placeX, placeY, placeZ, placeId);
+    net?.sendBlockSet(placeX, placeY, placeZ, placeId);
   }
 });
 
@@ -481,12 +497,12 @@ function tick(now) {
   attackCooldown = Math.max(0, attackCooldown - dt);
   const daylight = updateDayNight(timeSec);
   clouds.update(player.position, dt, timeSec, daylight);
-  net.tick(dt);
+  net?.tick(dt);
 
   if (!isMenuOpen()) {
     player.update(world, dt);
   }
-  net.setLocalState({
+  net?.setLocalState({
     x: player.position.x,
     y: player.position.y,
     z: player.position.z,
@@ -540,7 +556,7 @@ function tick(now) {
     crackOverlayMat,
     crackTextures,
     isMenuOpen,
-    (x, y, z) => net.sendBlockSet(x, y, z, BlockId.AIR)
+    (x, y, z) => net?.sendBlockSet(x, y, z, BlockId.AIR)
   );
   if (currentTarget && !isMenuOpen()) {
     targetBox.visible = true;
@@ -584,4 +600,20 @@ function tick(now) {
 
 world.loadChunksAround(player.position.x, player.position.z);
 refreshOverlayVisibility();
+setNamePromptVisible(true);
+nameInputEl.value = getOrCreatePlayerName();
+nameInputEl.focus();
+nameConfirmEl.addEventListener("click", () => {
+  const name = (nameInputEl.value || "").trim();
+  if (!name) return;
+  localStorage.setItem("voxel_player_name", name);
+  sessionStarted = true;
+  setNamePromptVisible(false);
+  startMultiplayerSession(name);
+  refreshOverlayVisibility();
+});
+nameInputEl.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  nameConfirmEl.click();
+});
 requestAnimationFrame(tick);

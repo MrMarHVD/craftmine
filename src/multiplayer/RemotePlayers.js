@@ -35,8 +35,59 @@ export class RemotePlayers {
       animPhase: Math.random() * Math.PI * 2,
       speed2D: 0,
     };
+    p.nameSprite = this.createNameSprite(p.name);
+    p.nameSprite.position.set(0, 2.05, 0);
+    p.mesh.add(p.nameSprite);
     this.players.set(id, p);
     return p;
+  }
+
+  createNameSprite(name) {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "rgba(10,10,10,0.7)";
+    ctx.fillRect(8, 14, c.width - 16, 36);
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.strokeRect(8.5, 14.5, c.width - 17, 35);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 26px Trebuchet MS";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, c.width / 2, 32);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(1.5, 0.38, 1);
+    sprite.userData.labelCanvas = c;
+    return sprite;
+  }
+
+  updateNameSprite(p, nextName) {
+    if (!p.nameSprite || p.name === nextName) return;
+    p.name = nextName;
+    const c = p.nameSprite.userData.labelCanvas;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "rgba(10,10,10,0.7)";
+    ctx.fillRect(8, 14, c.width - 16, 36);
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.strokeRect(8.5, 14.5, c.width - 17, 35);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 26px Trebuchet MS";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(nextName, c.width / 2, 32);
+    p.nameSprite.material.map.needsUpdate = true;
   }
 
   removePlayer(id) {
@@ -44,9 +95,13 @@ export class RemotePlayers {
     if (!p) return;
     this.scene.remove(p.mesh);
     p.mesh.traverse((n) => {
-      if (!n.isMesh) return;
-      n.geometry?.dispose?.();
-      n.material?.dispose?.();
+      if (n.isMesh) {
+        n.geometry?.dispose?.();
+        n.material?.dispose?.();
+      } else if (n.isSprite) {
+        n.material?.map?.dispose?.();
+        n.material?.dispose?.();
+      }
     });
     this.players.delete(id);
   }
@@ -62,6 +117,7 @@ export class RemotePlayers {
       keep.add(pl.id);
       const p = this.ensurePlayer(pl.id, pl);
       if (!p) continue;
+      this.updateNameSprite(p, pl.name ?? p.name);
       p.targetX = pl.x;
       p.targetY = pl.y;
       p.targetZ = pl.z;
