@@ -38,7 +38,7 @@ export function createScene() {
   scene.background = new THREE.Color(0x89cfff);
   scene.fog = new THREE.Fog(0x89cfff, CHUNK_SIZE * 4.2, CHUNK_SIZE * 7.5);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
   const sun = new THREE.DirectionalLight(0xffffff, 0.8);
   sun.position.set(120, 200, 50);
   scene.add(sun);
@@ -67,9 +67,10 @@ export function createCamera() {
  *   The opaque and transparent materials.
  */
 export function createMaterials(atlas) {
-  const matOpaque = new THREE.MeshLambertMaterial({ map: atlas.texture });
+  const matOpaque = new THREE.MeshLambertMaterial({ map: atlas.texture, vertexColors: true });
   const matTransparent = new THREE.MeshLambertMaterial({
     map: atlas.texture,
+    vertexColors: true,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
