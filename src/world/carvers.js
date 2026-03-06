@@ -54,8 +54,14 @@ function getRavineInCell(world, cellX, cellZ) {
     az: mz - Math.sin(angle) * half,
     bx: mx + Math.cos(angle) * half,
     bz: mz + Math.sin(angle) * half,
-    width: 4 + hash2D(cellX, cellZ, world.seed + 74129) * 8,
-    depth: 14 + hash2D(cellX, cellZ, world.seed + 74131) * 34,
+    width: 3.5 + hash2D(cellX, cellZ, world.seed + 74129) * 6.5,
+    depth: 22 + hash2D(cellX, cellZ, world.seed + 74131) * 38,
+    slopePow: 0.45 + hash2D(cellX, cellZ, world.seed + 74137) * 0.25,
+    hasFlatBottom: hash2D(cellX, cellZ, world.seed + 74141) > 0.22,
+    flatBottomWidth: 5 + hash2D(cellX, cellZ, world.seed + 74143) * 5,
+    flatDepthFactor: 0.86 + hash2D(cellX, cellZ, world.seed + 74147) * 0.11,
+    topNarrowFactor: 0.35 + hash2D(cellX, cellZ, world.seed + 74153) * 0.18,
+    bottomExpandFactor: 1.18 + hash2D(cellX, cellZ, world.seed + 74159) * 0.22,
   };
 
   world.ravineCache.set(key, ravine);
@@ -73,6 +79,7 @@ function carveRavines(world, blocks, cx, cz, worldX0, worldZ0) {
       const baseCellZ = floorDiv(z, RAVINE_CELL);
       let bestFloor = WORLD_HEIGHT;
       let hit = false;
+      const influences = [];
 
       for (let dz = -2; dz <= 2; dz++) {
         for (let dx = -2; dx <= 2; dx++) {
@@ -81,13 +88,35 @@ function carveRavines(world, blocks, cx, cz, worldX0, worldZ0) {
 
           const { distance, t } = distToSegment2D(x + 0.5, z + 0.5, ravine.ax, ravine.az, ravine.bx, ravine.bz);
           const widthAt = ravine.width * (0.7 + 0.3 * Math.sin(Math.PI * t));
-          if (distance > widthAt) continue;
+          // Consider expanded lower cross-section too; top checks happen during y pass.
+          if (distance > widthAt * ravine.bottomExpandFactor) continue;
+
+          const r = distance / widthAt;
+          const profile = 1 - r;
+          let depthAt = ravine.depth * Math.pow(profile, ravine.slopePow);
+          if (ravine.hasFlatBottom) {
+            const flatRadius = clamp01((ravine.flatBottomWidth * 0.5) / Math.max(0.001, widthAt));
+            const flatDepth = ravine.depth * ravine.flatDepthFactor;
+            if (r <= flatRadius) {
+              depthAt = flatDepth;
+            } else {
+              const blend = clamp01((r - flatRadius) / (1 - flatRadius));
+              const sideDepth = flatDepth * Math.pow(1 - blend, ravine.slopePow);
+              depthAt = Math.max(depthAt, sideDepth);
+            }
+          }
+          if (depthAt <= 0.01) continue;
 
           hit = true;
-          const profile = 1 - distance / widthAt;
-          const depthAt = ravine.depth * profile * profile;
           const floor = top - depthAt;
           if (floor < bestFloor) bestFloor = floor;
+          influences.push({
+            distance,
+            widthAt,
+            floor,
+            topNarrowFactor: ravine.topNarrowFactor,
+            bottomExpandFactor: ravine.bottomExpandFactor,
+          });
         }
       }
 
@@ -95,7 +124,19 @@ function carveRavines(world, blocks, cx, cz, worldX0, worldZ0) {
       const floorY = Math.max(4, Math.floor(bestFloor));
       const ceilingY = Math.min(WORLD_HEIGHT - 2, top + 2);
       for (let y = floorY; y <= ceilingY; y++) {
-        world.setGeneratedAirIfInChunk(blocks, cx, cz, x, y, z);
+        let carve = false;
+        for (let i = 0; i < influences.length; i++) {
+          const inf = influences[i];
+          if (y < inf.floor) continue;
+          const span = Math.max(1, top - inf.floor);
+          const depthLerp = clamp01((top - y) / span);
+          const widthFactor = inf.topNarrowFactor + (inf.bottomExpandFactor - inf.topNarrowFactor) * depthLerp;
+          if (inf.distance <= inf.widthAt * widthFactor) {
+            carve = true;
+            break;
+          }
+        }
+        if (carve) world.setGeneratedAirIfInChunk(blocks, cx, cz, x, y, z);
       }
     }
   }
