@@ -20,6 +20,7 @@ import { Player } from "./player/Player.js";
 import { QuestSystem } from "./quests/QuestSystem.js";
 import { voxelRaycast } from "./utils/raycast.js";
 import { createAtlas } from "./rendering/textureAtlas.js";
+import { CloudSystem } from "./rendering/CloudSystem.js";
 import { TerrainMapRenderer } from "./ui/TerrainMapRenderer.js";
 import { UI } from "./ui/UI.js";
 import { World } from "./world.js";
@@ -55,6 +56,7 @@ const { matOpaque, matTransparent } = createMaterials(atlas);
 const worldSeed = 20260304;
 const world = new World(scene, atlas, worldSeed);
 world.setupMaterials(matOpaque, matTransparent);
+const clouds = new CloudSystem(scene, worldSeed + 55123);
 
 const player = new Player(camera, canvas);
 const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 }));
@@ -244,6 +246,7 @@ function updateDayNight(timeSec) {
   skyBlendColor.lerpColors(skyNightColor, skyDayColor, daylight);
   scene.background.copy(skyBlendColor);
   if (scene.fog) scene.fog.color.copy(skyBlendColor);
+  return daylight;
 }
 
 window.addEventListener("resize", resize);
@@ -414,7 +417,8 @@ function tick(now) {
   prevTime = now;
   const timeSec = now / 1000;
   attackCooldown = Math.max(0, attackCooldown - dt);
-  updateDayNight(timeSec);
+  const daylight = updateDayNight(timeSec);
+  clouds.update(player.position, dt, timeSec, daylight);
 
   if (!isMenuOpen()) {
     player.update(world, dt);
