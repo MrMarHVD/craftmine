@@ -379,6 +379,7 @@ export class MobSystem {
       health: hostile ? 50 : 30,
       dropItem: null,
       damageFlash: 0,
+      provoked: false,
     };
 
     if (hostile) {
@@ -485,12 +486,12 @@ export class MobSystem {
    */
   attackFromRay(origin, direction, maxDistance, damage) {
     const candidates = [];
-    const aliveHostiles = [];
+    const aliveTargets = [];
     for (const e of this.entities.values()) {
-      if (!e.hostile || e.kind !== "mob") continue;
+      if (e.kind !== "mob") continue;
       if (e.health <= 0) continue;
       candidates.push(e.mesh);
-      aliveHostiles.push(e);
+      aliveTargets.push(e);
     }
     if (candidates.length === 0) return null;
 
@@ -508,7 +509,7 @@ export class MobSystem {
     let best = null;
     let bestDist = Infinity;
     const toTarget = new THREE.Vector3();
-    for (const e of aliveHostiles) {
+    for (const e of aliveTargets) {
       toTarget.subVectors(e.mesh.position, origin);
       const dist = toTarget.length();
       if (dist > maxDistance || dist < 0.0001) continue;
@@ -540,7 +541,7 @@ export class MobSystem {
     const toTarget = new THREE.Vector3();
 
     for (const e of this.entities.values()) {
-      if (!e.hostile || e.kind !== "mob") continue;
+      if (e.kind !== "mob") continue;
       if (e.health <= 0) continue;
 
       toTarget.subVectors(e.mesh.position, origin);
@@ -571,15 +572,20 @@ export class MobSystem {
    *   Result object, or `null` if the entity is not a valid target.
    */
   damageEntity(entity, damage) {
-    if (!entity || !entity.hostile || entity.kind !== "mob") return null;
+    if (!entity || entity.kind !== "mob") return null;
+    if (!entity.hostile && !entity.provoked) {
+      entity.provoked = true;
+      if (!entity.healthSprite) createHealthBarSprite(entity);
+      if (!entity.damageHalo) createDamageHalo(entity);
+    }
     entity.health = Math.max(0, entity.health - damage);
     entity.damageFlash = 0.25;
-    updateHealthBarSprite(entity);
+    if (entity.healthSprite) updateHealthBarSprite(entity);
 
     if (entity.health <= 0) {
       const payload = { name: entity.name, key: entity.key, dropItem: entity.dropItem };
       this.removeEntity(entity.id);
-      this.onEnemyKilled(payload);
+      if (entity.hostile) this.onEnemyKilled(payload);
       return { killed: true, ...payload };
     }
 
@@ -730,10 +736,10 @@ export class MobSystem {
         e.wanderTimer = 1.8 + hash2D(e.id, (timeSec * 4) | 0, 7002) * 3.2;
       }
 
-      if (!e.hostile && dist < 4.5) {
+      if (!e.hostile && e.provoked && dist < 7.2) {
         const inv = dist > 0.001 ? 1 / dist : 0;
-        e.vx = -toPlayerX * inv * e.speed;
-        e.vz = -toPlayerZ * inv * e.speed;
+        e.vx = -toPlayerX * inv * e.speed * 1.15;
+        e.vz = -toPlayerZ * inv * e.speed * 1.15;
       }
 
       if (e.hostile) {
