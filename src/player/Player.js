@@ -1,3 +1,12 @@
+/**
+ * @module player/Player
+ * @description Implements the first-person player controller. `Player` manages
+ * keyboard and mouse input, movement physics (walk, sneak, fly), a WASD camera
+ * direction system, and AABB collision resolution against solid world voxels.
+ * It is the only class that writes to `camera.position` and `camera.rotation`;
+ * all other systems read the player's public `position` and `velocity`.
+ */
+
 import * as THREE from "three";
 import {
   DOUBLE_TAP_MS,
@@ -14,9 +23,30 @@ import {
 } from "../constants.js";
 import { isSolid } from "../blocks.js";
 
+/** Small epsilon used to keep the player's AABB just clear of voxel surfaces to avoid false overlaps. */
 const EPS = 0.0001;
 
+/**
+ * First-person player controller that handles input, physics, and camera sync.
+ *
+ * @property {THREE.Vector3} position - Foot position of the player in world space.
+ * @property {THREE.Vector3} velocity - Current velocity in blocks per second.
+ * @property {number} yaw - Horizontal camera angle in radians (modified by mouse X).
+ * @property {number} pitch - Vertical camera angle in radians, clamped to ±89°.
+ * @property {boolean} grounded - `true` if the player is standing on a solid block.
+ * @property {boolean} flyMode - `true` if the player is in creative fly mode.
+ * @property {boolean} isLocked - `true` if the pointer lock is currently active.
+ * @property {number} walkSpeed - Configurable walking speed in blocks per second.
+ * @property {number} sneakSpeed - Configurable sneaking speed in blocks per second.
+ * @property {number} flySpeed - Configurable fly speed in blocks per second.
+ */
 export class Player {
+  /**
+   * Creates the player controller, binds all input events, and performs an
+   * initial camera sync.
+   * @param {THREE.PerspectiveCamera} camera - The perspective camera to control.
+   * @param {HTMLCanvasElement} domElement - The canvas element used for pointer lock requests.
+   */
   constructor(camera, domElement) {
     this.camera = camera;
     this.domElement = domElement;
@@ -54,12 +84,25 @@ export class Player {
     this.syncCamera();
   }
 
+  /**
+   * Updates the configurable movement speeds. Called by the debug pane in
+   * `main.js` when the player adjusts sliders. Speeds are clamped to safe
+   * minimum values to prevent the player from becoming immobile.
+   * @param {number} walkSpeed - New walk speed in blocks per second.
+   * @param {number} flySpeed - New fly speed in blocks per second (capped at 300).
+   */
   setMovementSpeeds(walkSpeed, flySpeed) {
     this.walkSpeed = Math.max(1, walkSpeed);
     this.sneakSpeed = Math.max(0.5, this.walkSpeed * 0.5);
     this.flySpeed = Math.max(1, Math.min(300, flySpeed));
   }
 
+  /**
+   * Registers all DOM event listeners for pointer lock state changes, mouse
+   * movement (camera look), and keyboard input (movement and double-tap flight
+   * toggle). Double-tapping Space within `DOUBLE_TAP_MS` milliseconds toggles
+   * fly mode; a single tap queues a jump when grounded.
+   */
   bindInput() {
     document.addEventListener("pointerlockchange", () => {
       this.isLocked = document.pointerLockElement === this.domElement;
@@ -98,6 +141,15 @@ export class Player {
     });
   }
 
+  /**
+   * Computes the player's AABB (axis-aligned bounding box) at position `pos`.
+   * The box is centred horizontally on `pos.x`/`pos.z` and extends from
+   * `pos.y` (feet) to `pos.y + PLAYER_HEIGHT` (head). Used by `overlapsSolid`
+   * and `combat.canPlaceAt`.
+   * @param {THREE.Vector3} [pos=this.position] - Position to compute the AABB for.
+   * @returns {{minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number}}
+   *   The six face positions of the AABB.
+   */
   getAABB(pos = this.position) {
     const hw = PLAYER_WIDTH * 0.5;
     return {
@@ -110,6 +162,16 @@ export class Player {
     };
   }
 
+  /**
+   * Tests whether the given AABB overlaps any solid world voxel. Iterates over
+   * every integer voxel cell that the AABB intersects and returns the first
+   * solid block found, or `null` if the AABB is clear. The `EPS` shrink on the
+   * max bounds prevents the player from locking onto the face of a voxel when
+   * standing flush against it.
+   * @param {Object} world - The `World` instance.
+   * @param {{minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number}} aabb - AABB to test.
+   * @returns {{x: number, y: number, z: number}|null} The first overlapping solid voxel, or `null`.
+   */
   overlapsSolid(world, aabb) {
     const minX = Math.floor(aabb.minX);
     const maxX = Math.floor(aabb.maxX - EPS);
@@ -130,6 +192,18 @@ export class Player {
     return null;
   }
 
+  /**
+   * Moves the player by `delta` along the given axis and resolves any resulting
+   * AABB collision against solid voxels. On collision, the player is pushed
+   * back to the surface and the corresponding velocity component is zeroed.
+   * A downward Y collision sets `this.grounded = true` so the player can jump.
+   * The loop repeats until no overlap remains, handling corner cases where a
+   * single push resolves into another block.
+   * @param {Object} world - The `World` instance.
+   * @param {"x"|"y"|"z"} axis - The axis to move along.
+   * @param {number} delta - Distance to move (may be negative).
+   * @returns {boolean} `true` if a collision occurred on this axis.
+   */
   resolveAxis(world, axis, delta) {
     if (delta === 0) return false;
     this.position[axis] += delta;
@@ -159,6 +233,16 @@ export class Player {
     return collided;
   }
 
+  /**
+   * Advances the player simulation by one frame of duration `dt` seconds.
+   * In walk/sneak mode, applies gravity and terminal velocity, then honours a
+   * queued jump if the player was grounded on the previous frame. In fly mode,
+   * Space ascends and Shift descends with no gravity. Movement resolves X, Z,
+   * then Y in separate axis passes to prevent corner-clipping artefacts.
+   * World-edge clamping prevents the player from leaving the vertical bounds.
+   * @param {Object} world - The `World` instance for collision queries.
+   * @param {number} dt - Frame delta time in seconds.
+   */
   update(world, dt) {
     const wasGrounded = this.grounded;
     this.grounded = false;
@@ -212,6 +296,11 @@ export class Player {
     this.syncCamera();
   }
 
+  /**
+   * Copies the player's current position and look angles into the camera.
+   * Called at the end of every `update` and also once after construction so
+   * the initial camera pose is correct before the first frame.
+   */
   syncCamera() {
     this.camera.position.set(this.position.x, this.position.y + PLAYER_EYE_HEIGHT, this.position.z);
     this.camera.rotation.order = "YXZ";

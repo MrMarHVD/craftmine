@@ -1,8 +1,28 @@
+/**
+ * @module rendering/textureAtlas
+ * @description Procedurally generates all block textures at startup and packs
+ * them into a single canvas-backed texture atlas. Using a single atlas avoids
+ * multiple draw calls per chunk and lets the GPU batch all voxel geometry into
+ * one material. `createAtlas` is the sole public export; it returns both the
+ * `THREE.CanvasTexture` and a `getFaceUVs` function that the chunk mesher uses
+ * to look up UV coordinates per block face.
+ */
+
 import * as THREE from "three";
 import { BLOCKS, FACE } from "../blocks.js";
 
+/** Side length in pixels of each individual tile in the atlas. */
 const TILE = 16;
+
+/** Number of tiles per row in the atlas grid. */
 const ATLAS_COLS = 6;
+
+/**
+ * Ordered list of all tile names. The position of each name in this array
+ * determines its atlas column and row, which are stored in `uvMap` and later
+ * sampled by `getFaceUVs`.
+ * @type {string[]}
+ */
 const TILES = [
   "grass_top",
   "grass_side",
@@ -26,6 +46,15 @@ const TILES = [
   "apple",
 ];
 
+/**
+ * Fills the current canvas context with per-pixel colour noise centred on
+ * `baseColor` with the given `variance`. Used as a base layer for most solid
+ * block textures to give them a hand-painted, slightly rough look.
+ * @param {CanvasRenderingContext2D} ctx - The 2-D context to draw into.
+ * @param {[number, number, number]} baseColor - RGB base colour as integers in [0, 255].
+ * @param {number} [variance=12] - Maximum per-pixel colour deviation in each channel.
+ * @param {number} [alpha=1] - Opacity of the filled pixels in [0, 1].
+ */
 function withNoise(ctx, baseColor, variance = 12, alpha = 1) {
   const [r, g, b] = baseColor;
   const img = ctx.createImageData(TILE, TILE);
@@ -39,6 +68,14 @@ function withNoise(ctx, baseColor, variance = 12, alpha = 1) {
   ctx.putImageData(img, 0, 0);
 }
 
+/**
+ * Procedurally draws a single 16×16 tile for the given texture name onto a
+ * new canvas element and returns that canvas. Each tile is defined by a series
+ * of Canvas 2D API draw calls — noise fills, rectangles, strokes, and arcs —
+ * that together approximate the block's appearance in the game world.
+ * @param {string} tile - One of the names listed in `TILES`.
+ * @returns {HTMLCanvasElement} A 16×16 canvas containing the finished tile.
+ */
 function drawTile(tile) {
   const c = document.createElement("canvas");
   c.width = TILE;
@@ -152,6 +189,23 @@ function drawTile(tile) {
   return c;
 }
 
+/**
+ * Builds the texture atlas from all procedurally drawn tiles and returns the
+ * Three.js texture and a UV lookup function.
+ *
+ * Process:
+ * 1. Creates a canvas wide enough to hold all tiles in a `ATLAS_COLS`-wide grid.
+ * 2. Calls `drawTile` for each name in `TILES` and composites the result into
+ *    the atlas at the appropriate grid cell.
+ * 3. Wraps the atlas canvas in a `THREE.CanvasTexture` configured for nearest-
+ *    neighbour magnification (crisp pixel art look) and mip-mapped minification.
+ * 4. Returns `getFaceUVs`, a closure that maps `(blockId, face)` to a
+ *    `[u0, v0, u1, v1]` UV rect in atlas space with a small inset (`pad = 0.02`)
+ *    to prevent texture bleeding across tile boundaries.
+ *
+ * @returns {{texture: THREE.CanvasTexture, getFaceUVs: function(number, number): number[]}}
+ *   The atlas texture and a function to retrieve UV coordinates per block face.
+ */
 export function createAtlas() {
   const rows = Math.ceil(TILES.length / ATLAS_COLS);
   const atlas = document.createElement("canvas");
@@ -176,6 +230,13 @@ export function createAtlas() {
   const invW = 1 / atlas.width;
   const invH = 1 / atlas.height;
 
+  /**
+   * Converts a tile name to its padded UV rectangle in atlas space.
+   * The 0.02-pixel inset on all sides prevents neighbouring tiles from
+   * bleeding into each other due to bilinear filtering at tile edges.
+   * @param {string} tileName - Atlas tile name from `TILES`.
+   * @returns {[number, number, number, number]} `[u0, v0, u1, v1]` UV coords.
+   */
   function getUVRect(tileName) {
     const p = uvMap[tileName];
     const pad = 0.02;
@@ -186,6 +247,15 @@ export function createAtlas() {
     return [u0, v0, u1, v1];
   }
 
+  /**
+   * Returns the UV rectangle for a specific face of a given block type.
+   * Respects per-block texture mappings (`all`, `top`/`side`/`bottom`) to
+   * give blocks like Grass, Log, and Cactus different textures on different
+   * faces. Called by `buildChunkGeometry` for every rendered face.
+   * @param {number} blockId - A {@link BlockId} value.
+   * @param {number} face - A {@link FACE} enum value.
+   * @returns {[number, number, number, number]} UV rect `[u0, v0, u1, v1]`.
+   */
   function getFaceUVs(blockId, face) {
     const b = BLOCKS[blockId];
     const t = b.textures;

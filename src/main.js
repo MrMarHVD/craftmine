@@ -1,3 +1,17 @@
+/**
+ * @module main
+ * @description Entry point and game loop for the browser-based voxel game.
+ * This module wires all subsystems together: it constructs the Three.js
+ * renderer, scene, and camera; instantiates the World, Player, UI,
+ * QuestSystem, and MobSystem; registers all DOM event listeners for input
+ * and window resize; and drives the `requestAnimationFrame`-based `tick` loop
+ * that updates physics, chunk loading, mob AI, combat, and rendering each frame.
+ *
+ * No game logic lives here beyond the top-level coordination needed to connect
+ * the subsystems — detailed behaviour is delegated to `game/combat.js` and
+ * `game/blockInteraction.js`.
+ */
+
 import * as THREE from "three";
 import { BlockId, isSolid } from "./blocks.js";
 import { CHUNK_SIZE, REACH_DISTANCE } from "./constants.js";
@@ -26,6 +40,7 @@ import {
   updateBreakMining,
 } from "./game/blockInteraction.js";
 
+/** Maximum player health points. */
 const MAX_HEALTH = 100;
 
 const canvas = document.getElementById("app");
@@ -36,6 +51,7 @@ const atlas = createAtlas();
 
 const { matOpaque, matTransparent } = createMaterials(atlas);
 
+/** Fixed world seed used for deterministic terrain, castles, mobs, and quests. */
 const worldSeed = 20260304;
 const world = new World(scene, atlas, worldSeed);
 world.setupMaterials(matOpaque, matTransparent);
@@ -54,6 +70,12 @@ const mobs = new MobSystem(scene, world, {
   },
 });
 
+/**
+ * Runtime configuration object that mirrors the values shown in the debug pane.
+ * Mutated by `ui.setupDebugPane`'s `onChange` callback when the player adjusts
+ * sliders or toggles in the debug panel.
+ * @type {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, healthEnabled: boolean, agroEnabled: boolean}}
+ */
 const debugSettings = {
   walkSpeed: 5.2,
   flySpeed: 11.5,
@@ -63,8 +85,13 @@ const debugSettings = {
   agroEnabled: true,
 };
 
+/** Current player health in [0, MAX_HEALTH]. */
 let health = MAX_HEALTH;
+
+/** Remaining cooldown in seconds before the player can take contact damage again. */
 let incomingDamageCooldown = 0;
+
+/** Remaining cooldown in seconds before the player can attack again. */
 let attackCooldown = 0;
 
 player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
@@ -86,28 +113,62 @@ ui.setupDebugPane(debugSettings, (patch) => {
 
 ui.setHotbarSelection(0);
 
+/** Reusable vector for the camera's world direction (avoids per-frame allocation). */
 const dir = new THREE.Vector3();
 const targetBox = createTargetBox(scene);
 
 const crackTextures = createCrackTextures();
 const { crackOverlay, crackOverlayMat } = createCrackOverlay(scene, crackTextures);
 
+/**
+ * Mutable container for the block-breaking state machine.
+ * - `breakState`: current break progress data, or `null` if not breaking.
+ * - `leftMouseDown`: whether the left mouse button is currently held.
+ * - `suppressBreakUntilMouseUp`: set to `true` after an attack hit so the
+ *   held mouse button does not also start breaking the block behind the enemy.
+ * @type {{breakState: Object|null, leftMouseDown: boolean, suppressBreakUntilMouseUp: boolean}}
+ */
 const breakState = { breakState: null, leftMouseDown: false, suppressBreakUntilMouseUp: false };
 
+/** Index of the currently selected hotbar slot (0-based). */
 let selectedIndex = 0;
+
+/** Raycast result for the block the player is looking at, or `null`. */
 let currentTarget = null;
+
+/** The nearest quest-giver entity within interaction range, or `null`. */
 let nearestQuestGiver = null;
+
+/** World-space position where the player respawns after death. */
 let spawnPoint = new THREE.Vector3(0, 40, 0);
 
+/**
+ * Returns `true` when any menu (inventory, dialogue, or debug pane) is open.
+ * Used to suppress game input when the player is interacting with UI.
+ * @returns {boolean}
+ */
 function isMenuOpen() {
   return ui.isInventoryOpen() || ui.isDialogueOpen() || ui.isDebugOpen();
 }
 
+/**
+ * Shows or hides the "click to play" overlay based on pointer-lock state and
+ * whether any menu is open. Called after any event that may change these states.
+ */
 function refreshOverlayVisibility() {
   const locked = document.pointerLockElement === canvas;
   ui.setOverlayVisible(!locked && !isMenuOpen());
 }
 
+/**
+ * Scans downward from Y=127 to find the first solid block with air above it
+ * at the given `(x, z)` world column. Returns Y+1 (the air block just above the
+ * surface) so callers receive the correct foot placement Y. Falls back to 45
+ * if no solid surface is found, which keeps the player from spawning underground.
+ * @param {number} x - World X coordinate.
+ * @param {number} z - World Z coordinate.
+ * @returns {number} World Y coordinate of the first safe standing position.
+ */
 function getGroundY(x, z) {
   for (let y = 127; y >= 1; y--) {
     if (isSolid(world.getBlock(x, y, z)) && !isSolid(world.getBlock(x, y + 1, z))) {
@@ -121,6 +182,10 @@ player.position.set(0.5, getGroundY(0, 0) + 2, 0.5);
 spawnPoint.copy(player.position);
 player.syncCamera();
 
+/**
+ * Updates the camera's aspect ratio and the renderer size when the browser
+ * window is resized.
+ */
 function resize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -260,11 +325,36 @@ window.addEventListener("mouseup", (e) => {
   clearBreakState(breakState, crackOverlay);
 });
 
+/** Timestamp of the previous frame, used to compute `dt`. */
 let prevTime = performance.now();
+
+/** Accumulated seconds used for the FPS average. */
 let fpsAccum = 0;
+
+/** Number of frames counted in the current FPS window. */
 let fpsFrames = 0;
+
+/** Accumulated seconds since the last chunk load sweep. */
 let chunkTick = 0;
 
+/**
+ * The main game loop function, called each animation frame via
+ * `requestAnimationFrame`. Runs in the following order:
+ * 1. Compute delta time, capped at 50 ms to avoid spiral-of-death on tab un-focus.
+ * 2. Tick attack cooldown.
+ * 3. Update player physics (if no menu is open).
+ * 4. Load/unload chunks around the player every 0.14 s.
+ * 5. Rebuild two dirty chunk meshes per frame.
+ * 6. Update mob AI and animations.
+ * 7. Apply contact damage from nearby hostiles (with cooldown).
+ * 8. Handle player death and respawn.
+ * 9. Find the nearest quest giver and update raycast target.
+ * 10. Advance the block-breaking state machine.
+ * 11. Show/hide the target block highlight box.
+ * 12. Update all HUD elements.
+ * 13. Render the terrain map and the 3-D scene.
+ * @param {DOMHighResTimeStamp} now - Current timestamp in milliseconds.
+ */
 function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;

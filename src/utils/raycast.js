@@ -1,5 +1,32 @@
+/**
+ * @module utils/raycast
+ * @description Implements a DDA (Digital Differential Analysis) voxel
+ * raycast. The algorithm steps through exactly the sequence of integer
+ * voxel cells a ray passes through, making it O(distance) with no missed
+ * blocks. It is called every frame from `main.js` to determine which block
+ * the player is looking at and from `MobSystem.js` for ranged hit detection.
+ */
+
 import * as THREE from "three";
 
+/**
+ * Casts a ray through the voxel world and returns the first non-air block hit.
+ * Uses the DDA algorithm: for each axis, it tracks the parametric distance `t`
+ * to the next voxel boundary and always advances through whichever boundary is
+ * closest, guaranteeing that every intersected cell is visited in order.
+ * Returns `null` if no solid block is found within `maxDist` units.
+ *
+ * The returned `previous` position is the last air voxel before the hit,
+ * which is where a newly placed block would be inserted.
+ *
+ * @param {Object} world - The `World` instance exposing `getBlock(x, y, z)`.
+ * @param {THREE.Vector3} origin - Ray start position in world space.
+ * @param {THREE.Vector3} dir - Ray direction (should be unit-length).
+ * @param {number} maxDist - Maximum ray travel distance in world units.
+ * @returns {{x: number, y: number, z: number, id: number, previous: THREE.Vector3}|null}
+ *   Hit information including the block coordinates, its block ID, and the
+ *   adjacent air voxel, or `null` if nothing was hit within range.
+ */
 export function voxelRaycast(world, origin, dir, maxDist) {
   const stepX = dir.x > 0 ? 1 : -1;
   const stepY = dir.y > 0 ? 1 : -1;

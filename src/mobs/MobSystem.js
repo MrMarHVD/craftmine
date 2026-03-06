@@ -1,3 +1,13 @@
+/**
+ * @module mobs/MobSystem
+ * @description Manages the full lifecycle of all living entities in the world:
+ * natural wildlife, hostile enemy groups, and quest-giver NPCs. `MobSystem`
+ * spawns mobs as chunks load, drives their AI (wander, flee, aggro), animates
+ * their rigs each frame, handles melee hit detection, applies damage, and
+ * cleans up dead or out-of-range entities. It is the primary combat and
+ * creature interaction layer between the player and the world.
+ */
+
 import * as THREE from "three";
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, RENDER_DISTANCE, WORLD_HEIGHT } from "../constants.js";
@@ -6,10 +16,30 @@ import { BIOME, BIOME_NAME } from "../world.js";
 import { createMobModel } from "./models.js";
 import { createHealthBarSprite, createDamageHalo, updateHealthBarSprite } from "./healthBar.js";
 
+/**
+ * Size of each hostile site placement cell in world blocks.
+ * @type {number}
+ */
 const HOSTILE_SITE_CELL = 384;
+
+/**
+ * Probability (0–1) that a given cell contains a hostile site.
+ * @type {number}
+ */
 const HOSTILE_SITE_CHANCE = 0.56;
+
+/**
+ * Maximum distance from the player in world blocks within which hostile sites
+ * are spawned and kept active.
+ * @type {number}
+ */
 const HOSTILE_SPAWN_RANGE = (RENDER_DISTANCE + 5) * CHUNK_SIZE;
 
+/**
+ * Per-biome definitions for the single natural (passive) mob that spawns in
+ * each chunk of that biome.
+ * @type {Object.<number, {key: string, name: string, color: number, speed: number, flying?: boolean}>}
+ */
 const NATURAL_BY_BIOME = {
   [BIOME.FOREST]: { key: "deer", name: "Deer", color: 0xa0764f, speed: 1.6 },
   [BIOME.DESERT]: { key: "lizard", name: "Lizard", color: 0xb9b06d, speed: 1.4 },
@@ -19,6 +49,11 @@ const NATURAL_BY_BIOME = {
   [BIOME.TUNDRA]: { key: "reindeer", name: "Reindeer", color: 0x9f8569, speed: 1.5 },
 };
 
+/**
+ * Per-biome definitions for hostile enemies that spawn at hostile sites.
+ * Each entry includes combat stats and the weapon item dropped on death.
+ * @type {Object.<number, {key: string, name: string, color: number, speed: number, health: number, drop: number}>}
+ */
 const HOSTILE_BY_BIOME = {
   [BIOME.FOREST]: {
     key: "bandit",
@@ -70,8 +105,23 @@ const HOSTILE_BY_BIOME = {
   },
 };
 
+/**
+ * Set of mob keys that are considered "intelligent" hostiles. Intelligent
+ * hostiles spawn in larger groups (3–5) and maintain a tighter patrol
+ * formation around their home point.
+ * @type {Set<string>}
+ */
 const INTELLIGENT_HOSTILES = new Set(["bandit", "raider"]);
 
+/**
+ * Scans downward from the world ceiling to find the highest solid, non-water
+ * block with air immediately above it. Used when placing mobs on the terrain
+ * surface before the chunk mesh is available.
+ * @param {Object} world - The `World` instance.
+ * @param {number} x - World X coordinate.
+ * @param {number} z - World Z coordinate.
+ * @returns {number} The Y coordinate of the topmost solid surface, or 1 if none found.
+ */
 function findTopSolidY(world, x, z) {
   const ix = Math.floor(x);
   const iz = Math.floor(z);
@@ -83,7 +133,26 @@ function findTopSolidY(world, x, z) {
   return 1;
 }
 
+/**
+ * Manages all living entities: natural mobs, hostile enemy groups, and
+ * quest-giver NPCs.
+ *
+ * @property {THREE.Scene} scene - The Three.js scene entities are added to.
+ * @property {Object} world - The `World` instance used for surface queries.
+ * @property {function} onEnemyKilled - Callback invoked with `{name, key, dropItem}` when a hostile is killed.
+ * @property {Map<number, Object>} entities - All active entity objects keyed by unique numeric ID.
+ * @property {Map<string, number[]>} chunkSpawns - Maps chunk keys to arrays of entity IDs spawned for that chunk.
+ * @property {Map<string, Object|null>} hostileSites - Cached hostile site descriptors keyed by cell key.
+ * @property {Map<string, number[]>} hostileSiteSpawns - Maps site keys to arrays of entity IDs at that site.
+ * @property {number} nextId - Monotonically increasing counter used to assign unique entity IDs.
+ */
 export class MobSystem {
+  /**
+   * @param {THREE.Scene} scene - Scene to add mob meshes to.
+   * @param {Object} world - The `World` instance.
+   * @param {Object} [options={}] - Optional configuration.
+   * @param {function} [options.onEnemyKilled] - Callback fired when a hostile entity is killed.
+   */
   constructor(scene, world, options = {}) {
     this.scene = scene;
     this.world = world;
@@ -100,6 +169,12 @@ export class MobSystem {
     this.raycaster = new THREE.Raycaster();
   }
 
+  /**
+   * Adds the entity's root mesh to the scene and tags every sub-mesh with
+   * `userData.entityId` so that `getEntityFromObject` can traverse up the
+   * mesh hierarchy during raycasting to identify the owning entity.
+   * @param {Object} entity - Entity object with `entity.id` and `entity.mesh`.
+   */
   attachEntityMesh(entity) {
     entity.mesh.userData.entityId = entity.id;
     entity.mesh.traverse((n) => {
@@ -108,6 +183,12 @@ export class MobSystem {
     this.scene.add(entity.mesh);
   }
 
+  /**
+   * Spawns the natural (passive) mob for a chunk and, with a biome-dependent
+   * probability, a quest-giver NPC. Does nothing if the chunk has already been
+   * spawned for (tracked via `chunkSpawns`).
+   * @param {Object} chunk - Chunk entry from `World.loaded` with `cx`, `cz`, and `key`.
+   */
   spawnForChunk(chunk) {
     const key = chunk.key;
     if (this.chunkSpawns.has(key)) return;
@@ -126,6 +207,16 @@ export class MobSystem {
     this.chunkSpawns.set(key, created.filter(Boolean));
   }
 
+  /**
+   * Returns the hostile site descriptor for cell `(cellX, cellZ)`, generating
+   * and caching it on first access. A hash roll against `HOSTILE_SITE_CHANCE`
+   * determines whether a site exists; if it does, the site's world position,
+   * biome, enemy definition, group size, and intelligence flag are derived
+   * deterministically from the cell coordinates.
+   * @param {number} cellX - Hostile site cell X grid index.
+   * @param {number} cellZ - Hostile site cell Z grid index.
+   * @returns {Object|null} Site descriptor or `null` if no site exists in this cell.
+   */
   getHostileSite(cellX, cellZ) {
     const key = `${cellX},${cellZ}`;
     if (this.hostileSites.has(key)) return this.hostileSites.get(key);
@@ -152,6 +243,13 @@ export class MobSystem {
     return site;
   }
 
+  /**
+   * Spawns all hostile entities for a given site if they have not already been
+   * spawned. Each member of the group is placed at a position offset from the
+   * site centre using an angular distribution, giving the group a natural
+   * spread.
+   * @param {Object} site - Hostile site descriptor from `getHostileSite`.
+   */
   spawnHostileSite(site) {
     if (this.hostileSiteSpawns.has(site.key)) return;
 
@@ -171,6 +269,19 @@ export class MobSystem {
     this.hostileSiteSpawns.set(site.key, ids);
   }
 
+  /**
+   * Creates and registers a single hostile entity at the given world position
+   * as part of a site spawn. Attaches a health bar and damage halo, assigns
+   * home position and patrol radius based on whether the site is intelligent,
+   * and stores the entity in `this.entities`.
+   * @param {Object} site - Hostile site descriptor.
+   * @param {number} index - Index of this entity within its group (used for patrol offset angle).
+   * @param {number} x - World X spawn position.
+   * @param {number} surfaceY - Surface Y coordinate at the spawn position.
+   * @param {number} z - World Z spawn position.
+   * @param {number} baseY - Surface Y at the site centre (used as `groupCenterY`).
+   * @returns {number|undefined} The new entity's ID, or `undefined` if creation failed.
+   */
   spawnHostileAt(site, index, x, surfaceY, z, baseY) {
     const { root, rig } = createMobModel(site.def, true, false);
     const id = this.nextId++;
@@ -219,6 +330,17 @@ export class MobSystem {
     return id;
   }
 
+  /**
+   * Creates and registers a single natural (passive) or hostile mob spawned
+   * for a specific chunk. The position within the chunk is determined
+   * deterministically from the chunk coordinates. Natural mobs have no health
+   * bar; hostile mobs created this way (rarely used) do.
+   * @param {Object} chunk - Chunk entry from `World.loaded`.
+   * @param {number} biome - Biome ID at the spawn location.
+   * @param {Object} def - Mob definition (from `NATURAL_BY_BIOME` or `HOSTILE_BY_BIOME`).
+   * @param {boolean} hostile - Whether this mob is hostile.
+   * @returns {number} The new entity's ID.
+   */
   spawnMob(chunk, biome, def, hostile) {
     const x = chunk.cx * CHUNK_SIZE + 2 + Math.floor(hash2D(chunk.cx, chunk.cz, hostile ? 443 : 223) * 12);
     const z = chunk.cz * CHUNK_SIZE + 2 + Math.floor(hash2D(chunk.cx, chunk.cz, hostile ? 877 : 557) * 12);
@@ -269,6 +391,15 @@ export class MobSystem {
     return id;
   }
 
+  /**
+   * Creates and registers a quest-giver NPC at a deterministic position inside
+   * the given chunk. Quest givers are stationary, non-hostile, and bob gently
+   * in place. They do not have a rig because they are not animated with leg/arm
+   * swings.
+   * @param {Object} chunk - Chunk entry from `World.loaded`.
+   * @param {number} biome - Biome ID at the spawn location (shown in the NPC name).
+   * @returns {number} The new entity's ID.
+   */
   spawnQuestGiver(chunk, biome) {
     const x = chunk.cx * CHUNK_SIZE + 4 + Math.floor(hash2D(chunk.cx, chunk.cz, 1201) * 8);
     const z = chunk.cz * CHUNK_SIZE + 4 + Math.floor(hash2D(chunk.cx, chunk.cz, 1202) * 8);
@@ -301,6 +432,11 @@ export class MobSystem {
     return id;
   }
 
+  /**
+   * Removes an entity from the scene, disposes its geometry and materials, and
+   * deletes it from `this.entities`.
+   * @param {number} id - Entity ID to remove.
+   */
   removeEntity(id) {
     const e = this.entities.get(id);
     if (!e) return;
@@ -314,6 +450,14 @@ export class MobSystem {
     this.entities.delete(id);
   }
 
+  /**
+   * Walks up the Three.js scene graph from `obj` to find the nearest ancestor
+   * that carries a `userData.entityId` tag, then looks up the corresponding
+   * entity. Used after a raycaster intersection to convert a sub-mesh hit into
+   * the owning entity.
+   * @param {THREE.Object3D} obj - The directly intersected object.
+   * @returns {Object|null} The entity, or `null` if no entity could be found.
+   */
   getEntityFromObject(obj) {
     let n = obj;
     while (n) {
@@ -325,6 +469,20 @@ export class MobSystem {
     return null;
   }
 
+  /**
+   * Attempts to damage a hostile entity along a ray (left-click attack).
+   * First tries a standard Three.js raycaster intersection against all
+   * alive hostile meshes. If no raycast hit is found, falls back to a cone
+   * proximity test (~23°) so that attacks against small or animated enemies
+   * still connect reliably. Returns a result object if damage was dealt, or
+   * `null` if nothing was hit.
+   * @param {THREE.Vector3} origin - Ray origin (typically the camera position).
+   * @param {THREE.Vector3} direction - Unit-length ray direction.
+   * @param {number} maxDistance - Maximum attack range in world units.
+   * @param {number} damage - Amount of health to subtract on hit.
+   * @returns {{killed: boolean, name: string, key: string, dropItem?: number}|null}
+   *   Hit result including whether the entity was killed, or `null` if nothing was hit.
+   */
   attackFromRay(origin, direction, maxDistance, damage) {
     const candidates = [];
     const aliveHostiles = [];
@@ -365,6 +523,17 @@ export class MobSystem {
     return this.damageEntity(best, damage);
   }
 
+  /**
+   * Finds the nearest hostile entity within `maxDistance` that lies within
+   * `maxAngle` radians of `direction` and deals `damage` to it. Used for
+   * melee attacks where the player swings in a cone in front of them.
+   * @param {THREE.Vector3} origin - Attack origin (typically the camera position).
+   * @param {THREE.Vector3} direction - Normalised look direction.
+   * @param {number} maxDistance - Maximum reach in world units.
+   * @param {number} maxAngle - Maximum angular deviation in radians.
+   * @param {number} damage - Damage to deal.
+   * @returns {{killed: boolean, name: string, key: string}|null} Hit result, or `null` if nothing in range.
+   */
   attackNearestInFront(origin, direction, maxDistance, maxAngle, damage) {
     let best = null;
     let bestDist = Infinity;
@@ -392,6 +561,15 @@ export class MobSystem {
     return this.damageEntity(best, damage);
   }
 
+  /**
+   * Applies `damage` to a hostile entity, updates its health bar and damage
+   * flash timer, and removes it if health reaches zero. On kill, calls
+   * `onEnemyKilled` with the entity's name, key, and drop item.
+   * @param {Object} entity - The entity to damage; must be hostile and of kind `"mob"`.
+   * @param {number} damage - Amount of health to subtract.
+   * @returns {{killed: boolean, name: string, key: string, dropItem?: number}|null}
+   *   Result object, or `null` if the entity is not a valid target.
+   */
   damageEntity(entity, damage) {
     if (!entity || !entity.hostile || entity.kind !== "mob") return null;
     entity.health = Math.max(0, entity.health - damage);
@@ -408,6 +586,12 @@ export class MobSystem {
     return { killed: false, name: entity.name, key: entity.key };
   }
 
+  /**
+   * Scans all hostile site cells within `HOSTILE_SPAWN_RANGE` of the player
+   * and calls `spawnHostileSite` for any site that is close enough and has not
+   * yet been spawned.
+   * @param {THREE.Vector3} playerPos - Current player position.
+   */
   spawnHostilesNear(playerPos) {
     const minCellX = floorDiv(playerPos.x - HOSTILE_SPAWN_RANGE, HOSTILE_SITE_CELL);
     const maxCellX = floorDiv(playerPos.x + HOSTILE_SPAWN_RANGE, HOSTILE_SITE_CELL);
@@ -428,6 +612,13 @@ export class MobSystem {
     }
   }
 
+  /**
+   * Called once per second to synchronise the entity population with the
+   * current world state. Spawns natural mobs for any newly loaded chunk,
+   * spawns hostile sites in range, removes entities that have wandered too far
+   * from the player, and cleans up stale spawn-tracking entries.
+   * @param {THREE.Vector3} playerPos - Current player position.
+   */
   syncSpawns(playerPos) {
     for (const chunk of this.world.loaded.values()) {
       this.spawnForChunk(chunk);
@@ -453,6 +644,16 @@ export class MobSystem {
     }
   }
 
+  /**
+   * Advances the rig animation for one entity by one frame. Leg and arm
+   * bones oscillate sinusoidally at a frequency and amplitude proportional to
+   * the entity's current ground speed. Wings flap at a fixed high frequency.
+   * Tail and head bob at slower frequencies to add life to idle entities.
+   * @param {Object} e - Entity object with a populated `rig`.
+   * @param {number} dt - Frame delta time in seconds.
+   * @param {number} speed2D - Current horizontal speed of the entity in blocks per second.
+   * @param {number} timeSec - Absolute time in seconds since game start.
+   */
   animateEntity(e, dt, speed2D, timeSec) {
     if (!e.rig) return;
     const rig = e.rig;
@@ -488,6 +689,19 @@ export class MobSystem {
     }
   }
 
+  /**
+   * Updates the movement, rotation, surface tracking, damage-flash decay, and
+   * animation of a single entity for one frame. Quest givers bob and spin in
+   * place. Regular mobs follow one of three states: aggro (charge the player),
+   * flee (passive mobs back away), or wander (change direction on a timer).
+   * Hostile mobs that drift beyond their patrol radius are steered back toward
+   * home. Flying mobs oscillate vertically rather than tracking the surface.
+   * @param {Object} e - Entity to update.
+   * @param {THREE.Vector3} playerPos - Current player position.
+   * @param {number} dt - Frame delta time in seconds.
+   * @param {number} timeSec - Absolute time in seconds since game start.
+   * @param {boolean} agroEnabled - Whether hostile mobs should chase the player.
+   */
   updateEntity(e, playerPos, dt, timeSec, agroEnabled) {
     if (e.kind === "questgiver") {
       e.mesh.position.y = e.homeY + Math.sin(timeSec * 1.9 + e.bobOffset) * 0.06;
@@ -562,6 +776,14 @@ export class MobSystem {
     this.animateEntity(e, dt, speed2D, timeSec);
   }
 
+  /**
+   * Main per-frame update: throttles spawn synchronisation to once per second,
+   * then updates every active entity's AI and animation.
+   * @param {THREE.Vector3} playerPos - Current player world position.
+   * @param {number} dt - Frame delta time in seconds.
+   * @param {number} timeSec - Absolute time in seconds since game start.
+   * @param {boolean} [agroEnabled=true] - Whether hostile mobs should aggro the player.
+   */
   update(playerPos, dt, timeSec, agroEnabled = true) {
     this.spawnTick += dt;
     if (this.spawnTick >= 1.0) {
@@ -574,6 +796,14 @@ export class MobSystem {
     }
   }
 
+  /**
+   * Counts the number of hostile mobs within a 3-D spherical radius of the
+   * player's position. Used by `main.js` to determine how much contact damage
+   * the player should receive each frame.
+   * @param {THREE.Vector3} playerPos - Player world position.
+   * @param {number} radius - Sphere radius in world units.
+   * @returns {number} Number of hostile mobs within the radius.
+   */
   countHostilesInRange(playerPos, radius) {
     const r2 = radius * radius;
     let count = 0;
@@ -587,6 +817,14 @@ export class MobSystem {
     return count;
   }
 
+  /**
+   * Returns the nearest quest-giver entity within `maxDistance` of the player,
+   * or `null` if none is close enough. Used by `main.js` to show the "Press F
+   * to talk" hint and to dispatch the talk action when F is pressed.
+   * @param {THREE.Vector3} playerPos - Player world position.
+   * @param {number} [maxDistance=4] - Maximum interaction distance in world units.
+   * @returns {Object|null} The nearest quest-giver entity, or `null`.
+   */
   getNearestQuestGiver(playerPos, maxDistance = 4) {
     let best = null;
     let bestD2 = maxDistance * maxDistance;

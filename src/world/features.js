@@ -1,9 +1,44 @@
+/**
+ * @module world/features
+ * @description Places surface decorations — trees, flowers, cacti, vines,
+ * stone spires, and gravel patches — into a chunk's block data after the
+ * base terrain has been generated. Each biome has its own set of feature rules
+ * driven by per-column hash values and cluster noise, ensuring that decorations
+ * are dense in the right areas and absent where the terrain is unstable.
+ *
+ * Features are stamped into the chunk with a margin that extends beyond the
+ * chunk boundary so that large structures (e.g., trees with radius 3) that
+ * originate outside the chunk can still write blocks inside it.
+ */
+
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE } from "../constants.js";
 import { valueNoise2D } from "../utils/noise.js";
 import { hash2D } from "../utils/random.js";
 import { BIOME } from "./biomes.js";
 
+/**
+ * Iterates over a padded region around chunk `(cx, cz)` and stamps
+ * biome-appropriate decorations into `blocks`. The padding (6 blocks on each
+ * side) allows features whose anchor column lies just outside the chunk to
+ * still write leaf/vine blocks inside it, preventing unnatural flat edges at
+ * chunk borders.
+ *
+ * Feature types per biome:
+ * - **Forest**: regular trees, apple trees, red and yellow flowers.
+ * - **Jungle**: tall trees with vines, moss, yellow flowers.
+ * - **Desert**: cacti of varying height, gravel patches.
+ * - **Mountain**: gravel patches, stone/snow spires above Y 70.
+ * - **Plains**: red and yellow flowers, sparse trees.
+ * - **Tundra**: gravel patches, sparse trees.
+ *
+ * @param {Object} world - The `World` instance used to read column data and write blocks.
+ * @param {Uint8Array} blocks - The chunk's flat block data array (modified in place).
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} worldX0 - World X coordinate of the chunk's west edge.
+ * @param {number} worldZ0 - World Z coordinate of the chunk's north edge.
+ */
 export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
   const margin = 6;
   for (let x = worldX0 - margin; x < worldX0 + CHUNK_SIZE + margin; x++) {
@@ -98,6 +133,23 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
   }
 }
 
+/**
+ * Checks whether column `(x, z)` has a stable, non-floating surface suitable
+ * for anchoring a tree or decorative object. A surface is considered stable if:
+ * 1. The surface block is not air or water.
+ * 2. The column is inside the current chunk (features anchored outside are
+ *    handled by the chunk that owns those columns).
+ * 3. All five blocks directly below the surface are also solid non-water blocks,
+ *    preventing features from floating above ravines or caves.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} x - World X of the column.
+ * @param {number} y - Surface Y of the column.
+ * @param {number} z - World Z of the column.
+ * @returns {boolean} `true` if the surface is stable and inside the chunk.
+ */
 function hasStableSurface(world, blocks, cx, cz, x, y, z) {
   const surfaceId = world.getGeneratedBlockFromChunkData(blocks, cx, cz, x, y, z);
   if (surfaceId === BlockId.AIR || surfaceId === BlockId.WATER) return false;
@@ -114,6 +166,23 @@ function hasStableSurface(world, blocks, cx, cz, x, y, z) {
   return true;
 }
 
+/**
+ * Places a tree with a straight log trunk and a spherical leaf canopy,
+ * optionally adding hanging vines on the outer leaf edges (jungle variant).
+ * The canopy radius shrinks toward the top and bottom of the crown, giving it
+ * a natural rounded shape. Vines are placed below edge leaf blocks with a
+ * probability based on a per-position hash; vine length varies from 2 to 5.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} x - World X of the trunk base.
+ * @param {number} y - World Y of the trunk base (one above the surface).
+ * @param {number} z - World Z of the trunk base.
+ * @param {number} trunkH - Height of the trunk in blocks.
+ * @param {number} radius - Base radius of the leaf canopy in blocks.
+ * @param {boolean} withVines - If `true`, jungle vines are added below outer canopy edges.
+ */
 function placeTree(world, blocks, cx, cz, x, y, z, trunkH, radius, withVines) {
   for (let i = 0; i < trunkH; i++) {
     world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + i, z, BlockId.LOG);
@@ -145,6 +214,22 @@ function placeTree(world, blocks, cx, cz, x, y, z, trunkH, radius, withVines) {
   }
 }
 
+/**
+ * Places an apple tree: a straight log trunk topped with a spherical leaf
+ * canopy where some outer positions are replaced with apple blocks. The apple
+ * probability is determined by a per-position hash so the distribution is
+ * deterministic but appears random. Only positions at Manhattan distance ≥ 2
+ * from the trunk axis are eligible for apples, keeping the core of the crown
+ * leafy.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} x - World X of the trunk base.
+ * @param {number} y - World Y of the trunk base.
+ * @param {number} z - World Z of the trunk base.
+ * @param {number} trunkH - Height of the trunk in blocks.
+ */
 function placeAppleTree(world, blocks, cx, cz, x, y, z, trunkH) {
   for (let i = 0; i < trunkH; i++) {
     world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + i, z, BlockId.LOG);

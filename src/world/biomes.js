@@ -1,16 +1,41 @@
+/**
+ * @module world/biomes
+ * @description Defines the six biomes of the world, their climate properties,
+ * surface block types, and procedural height functions. `getColumnData` is the
+ * primary entry point called during chunk generation: it samples a continuous
+ * climate field, computes a weighted blend of all nearby biome heights, and
+ * returns the surface block and integer column height for a given (x, z) world
+ * coordinate — allowing smooth transitions between biomes without hard borders.
+ */
+
 import { BlockId } from "../blocks.js";
 import { WORLD_HEIGHT } from "../constants.js";
 import { fbm2D } from "../utils/noise.js";
 
+/**
+ * Enum of biome type identifiers used throughout world generation and mob spawning.
+ * @enum {number}
+ */
 export const BIOME = {
+  /** Hot, dry sandy landscape with dunes and sparse cacti. */
   DESERT: 0,
+  /** Temperate green forest with tall trees and flowers. */
   FOREST: 1,
+  /** Hot, humid jungle with dense tree canopies and vines. */
   JUNGLE: 2,
+  /** High-altitude rocky terrain with sharp peaks and snow caps. */
   MOUNTAIN: 3,
+  /** Flat to gently rolling grassland with scattered trees and flowers. */
   PLAINS: 4,
+  /** Cold, snowy landscape with reindeer and sparse pine-like trees. */
   TUNDRA: 5,
 };
 
+/**
+ * Human-readable display names for each biome, keyed by {@link BIOME} value.
+ * Shown in the debug HUD and quest-giver dialogue.
+ * @type {Object.<number, string>}
+ */
 export const BIOME_NAME = {
   [BIOME.DESERT]: "Desert",
   [BIOME.FOREST]: "Forest",
@@ -20,6 +45,16 @@ export const BIOME_NAME = {
   [BIOME.TUNDRA]: "Tundra",
 };
 
+/**
+ * Per-biome properties used for climate matching and terrain generation.
+ * Each entry contains:
+ * - `temp` — ideal temperature value in [0, 1] for Voronoi-style blending.
+ * - `moisture` — ideal moisture value in [0, 1] for Voronoi-style blending.
+ * - `surface` — the {@link BlockId} placed on the very top of solid columns.
+ * - `subsurface` — the {@link BlockId} placed in the 3 layers below the surface.
+ * - `height(x, z, seed)` — function returning the raw float column height at (x, z).
+ * @type {Object.<number, {temp: number, moisture: number, surface: number, subsurface: number, height: function(number, number, number): number}>}
+ */
 export const BIOME_PROPS = {
   [BIOME.DESERT]: {
     temp: 0.92,
@@ -90,18 +125,51 @@ export const BIOME_PROPS = {
   },
 };
 
+/**
+ * Array of all biome IDs, used for iterating over every biome during blending.
+ * @type {number[]}
+ */
 export const BIOME_IDS = Object.values(BIOME);
 
+/**
+ * Squares a value. Used internally to compute squared Euclidean distance in
+ * the 2-D climate space for biome weight calculations.
+ * @param {number} v - Input value.
+ * @returns {number} The squared value.
+ */
 function sqr(v) {
   return v * v;
 }
 
+/**
+ * Samples the continuous 2-D climate field at world position `(x, z)`,
+ * returning independent `temperature` and `moisture` values in approximately
+ * [0, 1]. Both fields are large-scale fBm noise with different seeds so they
+ * are uncorrelated, producing all climate combinations across the world.
+ * @param {Object} world - The `World` instance (provides `world.seed`).
+ * @param {number} x - World X coordinate.
+ * @param {number} z - World Z coordinate.
+ * @returns {{temperature: number, moisture: number}} Climate values at the given position.
+ */
 export function getClimate(world, x, z) {
   const temperature = fbm2D(x * 0.0017, z * 0.0017, world.seed + 501, 4, 2, 0.5);
   const moisture = fbm2D(x * 0.0018, z * 0.0018, world.seed + 601, 4, 2, 0.5);
   return { temperature, moisture };
 }
 
+/**
+ * Computes a Gaussian-weighted blend of all biomes at world position `(x, z)`.
+ * Each biome's weight is `exp(-d² × 12.5)` where `d²` is the squared distance
+ * in climate space from the sampled climate to the biome's ideal climate point.
+ * Higher values of 12.5 produce sharper biome boundaries; the dominant biome
+ * is the one with the greatest individual weight.
+ * @param {Object} world - The `World` instance (provides `world.seed`).
+ * @param {number} x - World X coordinate.
+ * @param {number} z - World Z coordinate.
+ * @returns {{dominant: number, weights: Array.<[number, number]>, total: number}}
+ *   The dominant biome ID, an array of `[biomeId, rawWeight]` pairs, and the
+ *   sum of all raw weights (used for normalization in `getColumnData`).
+ */
 export function getBiomeBlend(world, x, z) {
   const climate = getClimate(world, x, z);
   let total = 0;
@@ -124,6 +192,23 @@ export function getBiomeBlend(world, x, z) {
   return { dominant, weights, total };
 }
 
+/**
+ * Returns the complete column data for a given `(x, z)` world coordinate,
+ * including the terrain height, dominant biome, and the surface/subsurface
+ * block IDs to use during chunk generation.
+ *
+ * Height is computed as a weighted average of all biome height functions,
+ * clamped to [3, WORLD_HEIGHT − 2], which ensures smooth transitions at biome
+ * borders. Mountain columns above Y 80 additionally override the surface block
+ * to Snow.
+ *
+ * @param {Object} world - The `World` instance (provides `world.seed`).
+ * @param {number} x - World X coordinate.
+ * @param {number} z - World Z coordinate.
+ * @returns {{height: number, dominantBiome: number, surface: number, subsurface: number}}
+ *   Terrain height in blocks, dominant biome ID, and the block IDs for the
+ *   top surface and the three subsurface layers.
+ */
 export function getColumnData(world, x, z) {
   const blend = getBiomeBlend(world, x, z);
   let height = 0;

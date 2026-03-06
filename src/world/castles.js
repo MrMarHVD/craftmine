@@ -1,27 +1,87 @@
+/**
+ * @module world/castles
+ * @description Procedurally generates castle layouts and stamps them into
+ * chunk block data. The world is divided into large region cells; each cell
+ * has a small chance of containing a castle. When a castle is needed, its
+ * entire layout (keep, rooms, corridors, towers, doorway connections) is
+ * generated from a seeded LCG RNG so the result is deterministic across any
+ * number of chunk loads. `applyCastlesToChunk` is the public entry point
+ * called during chunk generation; it discovers all castle regions that overlap
+ * the current chunk and calls the stamping functions.
+ */
+
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 import { floorDiv, hash2D } from "../utils/random.js";
 
+/**
+ * Width/depth of each castle placement region in world blocks.
+ * Castles spawn at most once per region.
+ * @type {number}
+ */
 const CASTLE_REGION_CHUNKS = 14;
+
+/** Size of each castle region in world blocks (CASTLE_REGION_CHUNKS × CHUNK_SIZE). */
 const CASTLE_REGION_SIZE = CHUNK_SIZE * CASTLE_REGION_CHUNKS;
+
+/**
+ * Probability (0–1) that a given region contains a castle.
+ * @type {number}
+ */
 const CASTLE_SPAWN_CHANCE = 0.045;
 
+/**
+ * A minimal seeded linear-congruential generator (LCG) used exclusively for
+ * castle layout generation. Using a separate deterministic RNG keeps castle
+ * layouts independent of global hash seeds and ensures they can be
+ * regenerated in any order.
+ */
 class CastleRng {
+  /**
+   * @param {number} seed - Integer seed; automatically adjusted if zero.
+   */
   constructor(seed) {
     this.state = seed | 0;
     if (this.state === 0) this.state = 1;
   }
 
+  /**
+   * Advances the LCG and returns the next pseudo-random float in [0, 1).
+   * @returns {number} Next pseudo-random value.
+   */
   next() {
     this.state = (Math.imul(this.state, 1664525) + 1013904223) | 0;
     return (this.state >>> 0) / 4294967295;
   }
 
+  /**
+   * Returns a random integer in [`min`, `maxExclusive`).
+   * @param {number} min - Inclusive lower bound.
+   * @param {number} maxExclusive - Exclusive upper bound.
+   * @returns {number} Integer in the given range.
+   */
   range(min, maxExclusive) {
     return min + Math.floor(this.next() * (maxExclusive - min));
   }
 }
 
+/**
+ * Returns the castle descriptor for region `(regionX, regionZ)`, generating
+ * and caching it on first access. A hash roll against `CASTLE_SPAWN_CHANCE`
+ * determines whether a castle exists; if it does, a seeded `CastleRng` is
+ * used to produce the full layout:
+ * - A central **keep** (large rectangular hall).
+ * - Up to 14 additional **rooms** or **corridors** attached to existing pieces.
+ * - Four **corner towers** anchored at the keep corners.
+ * - **Connections** (doorway openings) between each piece and its parent.
+ * Piece placement uses an overlap check to avoid intersecting footprints.
+ * The castle's world-space bounding box (`minX`/`maxX`/`minZ`/`maxZ`) is
+ * computed so `applyCastlesToChunk` can quickly skip non-overlapping castles.
+ * @param {Object} world - The `World` instance (provides `world.seed` and `world.castleCache`).
+ * @param {number} regionX - Castle region X grid index.
+ * @param {number} regionZ - Castle region Z grid index.
+ * @returns {Object|null} Castle layout descriptor or `null` if the region has no castle.
+ */
 export function getCastleForRegion(world, regionX, regionZ) {
   const key = `${regionX},${regionZ}`;
   if (world.castleCache.has(key)) return world.castleCache.get(key);
@@ -161,6 +221,20 @@ export function getCastleForRegion(world, regionX, regionZ) {
   return castle;
 }
 
+/**
+ * Iterates over all castle regions that could overlap chunk `(cx, cz)` and
+ * stamps any intersecting castles into the chunk's block array. A search
+ * radius of 220 blocks accounts for the largest possible castle footprint so
+ * no castle is missed. For each region the function calls `getCastleForRegion`
+ * (potentially generating the layout on demand) and performs an AABB
+ * intersection test before committing to the more expensive stamping work.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data (modified in place).
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} worldX0 - World X of the chunk's west edge.
+ * @param {number} worldZ0 - World Z of the chunk's north edge.
+ */
 export function applyCastlesToChunk(world, blocks, cx, cz, worldX0, worldZ0) {
   const chunkMinX = worldX0;
   const chunkMaxX = worldX0 + CHUNK_SIZE - 1;
@@ -188,6 +262,14 @@ export function applyCastlesToChunk(world, blocks, cx, cz, worldX0, worldZ0) {
   }
 }
 
+/**
+ * Stamps all pieces, towers, and connections of a single castle into a chunk.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {Object} castle - Castle layout descriptor from {@link getCastleForRegion}.
+ */
 function stampCastle(world, blocks, cx, cz, castle) {
   for (const piece of castle.pieces) {
     stampCastlePiece(world, blocks, cx, cz, castle.baseY, piece);
@@ -202,6 +284,19 @@ function stampCastle(world, blocks, cx, cz, castle) {
   }
 }
 
+/**
+ * Stamps a rectangular castle piece (keep, room, or corridor) into the chunk.
+ * The floor layer is solid brick; walls are solid bricks along the perimeter
+ * while the interior is cleared to air; the roof uses a checkerboard crenelation
+ * pattern on non-corridor pieces. Large rooms (≥9×9) receive four interior
+ * support columns to suggest vaulted architecture.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} baseY - World Y of the castle's ground floor.
+ * @param {Object} piece - Piece descriptor with `x`, `z`, `w`, `d`, `h`, `kind`.
+ */
 function stampCastlePiece(world, blocks, cx, cz, baseY, piece) {
   const topY = Math.min(WORLD_HEIGHT - 3, baseY + piece.h);
   for (let z = piece.z; z < piece.z + piece.d; z++) {
@@ -242,6 +337,18 @@ function stampCastlePiece(world, blocks, cx, cz, baseY, piece) {
   }
 }
 
+/**
+ * Stamps a square tower at a corner of the keep. The tower has solid brick
+ * walls along its outer ring, air inside, and a checkerboard crenelation at
+ * the top. Only cells within the Chebyshev radius `tower.r` from the tower
+ * centre are written.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} baseY - World Y of the castle's ground floor.
+ * @param {Object} tower - Tower descriptor with `x`, `z`, `r`, `h`.
+ */
 function stampCastleTower(world, blocks, cx, cz, baseY, tower) {
   const topY = Math.min(WORLD_HEIGHT - 3, baseY + tower.h);
   for (let z = tower.z - tower.r; z <= tower.z + tower.r; z++) {
@@ -263,6 +370,18 @@ function stampCastleTower(world, blocks, cx, cz, baseY, tower) {
   }
 }
 
+/**
+ * Carves a doorway opening between two adjacent castle pieces by clearing a
+ * 3-block-wide, 4-block-tall air passage through the shared wall. The exact
+ * positions cleared depend on `c.side` (0 = north, 1 = east, 2 = south,
+ * 3 = west) so the opening always faces the correct direction.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data.
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} baseY - World Y of the castle's ground floor.
+ * @param {Object} c - Connection descriptor with `side`, `x`, `z`.
+ */
 function stampCastleConnection(world, blocks, cx, cz, baseY, c) {
   for (let y = baseY + 1; y <= baseY + 4; y++) {
     for (let o = -1; o <= 1; o++) {

@@ -1,7 +1,28 @@
+/**
+ * @module ui/icons
+ * @description Procedurally draws 24×24 pixel canvas icons for every block and
+ * weapon type in the game and returns them as data URLs. `createIconMap` is the
+ * primary export; the resulting `Map<BlockId, string>` is used by `UI` to
+ * render item images in hotbar slots and inventory slots without any external
+ * image assets.
+ */
+
 import { BLOCKS, BlockId } from "../blocks.js";
 
+/** Side length in pixels of each generated icon canvas. */
 export const ICON_SIZE = 24;
 
+/**
+ * Fills the current canvas context with per-pixel colour noise centred on the
+ * given RGB values. Used as the base texture layer for solid block icons to
+ * give them visual variety similar to the atlas tiles.
+ * @param {CanvasRenderingContext2D} ctx - 2-D context to draw into.
+ * @param {number} r - Red channel base value in [0, 255].
+ * @param {number} g - Green channel base value in [0, 255].
+ * @param {number} b - Blue channel base value in [0, 255].
+ * @param {number} [variance=12] - Maximum per-pixel deviation in each colour channel.
+ * @param {number} [alpha=255] - Alpha value for all pixels in [0, 255].
+ */
 export function drawNoise(ctx, r, g, b, variance = 12, alpha = 255) {
   const img = ctx.createImageData(ICON_SIZE, ICON_SIZE);
   for (let i = 0; i < img.data.length; i += 4) {
@@ -14,6 +35,15 @@ export function drawNoise(ctx, r, g, b, variance = 12, alpha = 255) {
   ctx.putImageData(img, 0, 0);
 }
 
+/**
+ * Creates a 24×24 canvas icon for the given `blockId` using Canvas 2D drawing
+ * commands and returns it as a PNG data URL. Each block type has a bespoke set
+ * of draw calls that approximate the block's in-world appearance at icon scale.
+ * Weapon items are drawn as simple silhouettes matching their shape (blade,
+ * saber, bow, claws, hammer, axe).
+ * @param {number} blockId - A {@link BlockId} value (must not be `BlockId.AIR`).
+ * @returns {string} PNG data URL for the icon image.
+ */
 export function createIcon(blockId) {
   const c = document.createElement("canvas");
   c.width = ICON_SIZE;
@@ -149,6 +179,13 @@ export function createIcon(blockId) {
   return c.toDataURL();
 }
 
+/**
+ * Generates icons for every non-air block in the game and returns them in a
+ * Map keyed by block ID. Called once during `UI` construction and the resulting
+ * map is stored on the UI instance for use in slot rendering. Air is excluded
+ * because empty slots have no visible icon.
+ * @returns {Map<number, string>} A map from block ID to PNG data URL.
+ */
 export function createIconMap() {
   const map = new Map();
   Object.keys(BLOCKS).forEach((k) => {

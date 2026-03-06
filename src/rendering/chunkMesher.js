@@ -1,7 +1,26 @@
+/**
+ * @module rendering/chunkMesher
+ * @description Converts a chunk's voxel data into renderable Three.js
+ * `BufferGeometry` objects. `buildChunkGeometry` is the sole public export
+ * and is called by `World.rebuildOneChunk` whenever a chunk is marked dirty.
+ * The mesher performs face-culling: a face is emitted only when the
+ * neighbouring voxel is transparent relative to the current block, keeping
+ * the triangle count low. Opaque and transparent blocks are accumulated into
+ * separate geometry builders so they can be rendered with different materials.
+ */
+
 import * as THREE from "three";
 import { BLOCKS, FACE } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 
+/**
+ * Per-face geometry definitions. Each entry specifies the face direction
+ * (used for UV lookup), the outward normal (used for lighting), and the four
+ * vertex offsets within a 1³ unit cube. Vertices are ordered for two
+ * counter-clockwise triangles when viewed from outside: the index buffer
+ * emits (0,1,2) and (0,2,3).
+ * @type {Array<{face: number, normal: number[], verts: Array<number[]>, n: number[]}>}
+ */
 const FACE_DEFS = [
   {
     face: FACE.PX,
@@ -71,6 +90,18 @@ const FACE_DEFS = [
   },
 ];
 
+/**
+ * Determines whether a face between `blockId` and `neighborId` should be
+ * emitted into the mesh. The rules are:
+ * - Opaque blocks: emit the face only when the neighbour is air or transparent.
+ * - Transparent blocks: emit the face when the neighbour is air, or when
+ *   the neighbour is a different block type (prevents water–water or
+ *   leaves–leaves internal faces while still showing the border between two
+ *   different transparent materials).
+ * @param {number} blockId - Block ID of the current voxel.
+ * @param {number} neighborId - Block ID of the adjacent voxel.
+ * @returns {boolean} `true` if the face should be rendered.
+ */
 function shouldRenderFace(blockId, neighborId) {
   const block = BLOCKS[blockId];
   const neighbor = BLOCKS[neighborId];
@@ -84,6 +115,12 @@ function shouldRenderFace(blockId, neighborId) {
   return neighborId === 0 || neighbor.transparent;
 }
 
+/**
+ * Creates a fresh geometry builder — a set of flat arrays for positions,
+ * normals, UVs, and indices, plus a vertex counter. Two builders are created
+ * per chunk build (one opaque, one transparent).
+ * @returns {{positions: number[], normals: number[], uvs: number[], indices: number[], count: number}}
+ */
 function createBuilder() {
   return {
     positions: [],
@@ -94,6 +131,17 @@ function createBuilder() {
   };
 }
 
+/**
+ * Appends the four vertices, normals, UVs, and two triangles for a single
+ * block face to a geometry builder. The UV rectangle is mapped so that the
+ * four tile corners align with the four face vertices in the expected order.
+ * @param {Object} builder - A geometry builder from `createBuilder`.
+ * @param {number} x - World X of the block.
+ * @param {number} y - World Y of the block.
+ * @param {number} z - World Z of the block.
+ * @param {Object} def - One entry from `FACE_DEFS`.
+ * @param {[number, number, number, number]} uvRect - UV coords `[u0, v0, u1, v1]` from the atlas.
+ */
 function appendFace(builder, x, y, z, def, uvRect) {
   const [u0, v0, u1, v1] = uvRect;
   const uv = [
@@ -115,6 +163,14 @@ function appendFace(builder, x, y, z, def, uvRect) {
   builder.count += 4;
 }
 
+/**
+ * Converts a finished geometry builder into a `THREE.BufferGeometry` with
+ * `position`, `normal`, and `uv` attributes and an index buffer. Returns
+ * `null` if the builder has no faces, allowing the caller to skip creating
+ * a mesh for completely empty geometry.
+ * @param {Object} builder - A geometry builder produced by `createBuilder` and filled by `appendFace`.
+ * @returns {THREE.BufferGeometry|null} The finished geometry, or `null` if empty.
+ */
 function finishGeometry(builder) {
   if (builder.indices.length === 0) return null;
 
@@ -127,6 +183,20 @@ function finishGeometry(builder) {
   return geometry;
 }
 
+/**
+ * Builds the opaque and transparent `BufferGeometry` objects for chunk
+ * `(cx, cz)`. Iterates every non-air voxel in the chunk, checks each of the
+ * six face directions, and emits only the faces whose neighbour passes the
+ * `shouldRenderFace` test. Opaque and transparent blocks accumulate into
+ * separate builders so they can be attached to separate `THREE.Mesh` instances
+ * with different materials in `World.rebuildOneChunk`.
+ * @param {Object} world - The `World` instance used to read block IDs (including cross-chunk neighbours).
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {function(number, number): number[]} getFaceUVs - UV lookup function from the texture atlas.
+ * @returns {{opaque: THREE.BufferGeometry|null, transparent: THREE.BufferGeometry|null}}
+ *   Separate geometry objects for opaque and transparent block faces.
+ */
 export function buildChunkGeometry(world, cx, cz, getFaceUVs) {
   const opaque = createBuilder();
   const transparent = createBuilder();

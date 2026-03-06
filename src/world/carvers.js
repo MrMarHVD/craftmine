@@ -1,15 +1,56 @@
+/**
+ * @module world/carvers
+ * @description Applies terrain carvers to a chunk after the base solid terrain
+ * has been filled but before features are placed. Two independent passes run:
+ * 1. `carveRavines` — cuts long, trench-like ravines across the landscape.
+ * 2. `carveCaves` — hollows out underground tunnels using 3-D fBm thresholds.
+ * Both passes write air into the chunk's block array using
+ * `world.setGeneratedAirIfInChunk`, which silently ignores positions outside
+ * the target chunk. After carving, `applyTerrainCarvers` guarantees the Y=0
+ * row is always Bedrock.
+ */
+
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 import { fbm2D, fbm3D } from "../utils/noise.js";
 import { floorDiv, hash2D } from "../utils/random.js";
 
+/**
+ * Width of each ravine placement cell in world blocks.
+ * At most one ravine can originate per cell.
+ * @type {number}
+ */
 const RAVINE_CELL = 96;
+
+/**
+ * Probability (0–1) that a given cell contains a ravine.
+ * @type {number}
+ */
 const RAVINE_CHANCE = 0.24;
 
+/**
+ * Clamps a value to [0, 1].
+ * @param {number} v - Input value.
+ * @returns {number} Value clamped to [0, 1].
+ */
 function clamp01(v) {
   return Math.max(0, Math.min(1, v));
 }
 
+/**
+ * Computes the shortest 2-D distance from point `(px, pz)` to the finite
+ * line segment from `(ax, az)` to `(bx, bz)`, along with the normalized
+ * parameter `t` ∈ [0, 1] of the closest point on the segment. Used by
+ * `carveRavines` to determine how far each chunk column is from a ravine
+ * centre-line, and therefore how deep the ravine cuts at that column.
+ * @param {number} px - Query point X.
+ * @param {number} pz - Query point Z.
+ * @param {number} ax - Segment start X.
+ * @param {number} az - Segment start Z.
+ * @param {number} bx - Segment end X.
+ * @param {number} bz - Segment end Z.
+ * @returns {{distance: number, t: number}} Distance to the closest point and its normalized parameter.
+ */
 function distToSegment2D(px, pz, ax, az, bx, bz) {
   const abx = bx - ax;
   const abz = bz - az;
@@ -27,6 +68,19 @@ function distToSegment2D(px, pz, ax, az, bx, bz) {
   return { distance: Math.hypot(px - qx, pz - qz), t };
 }
 
+/**
+ * Returns the ravine descriptor for the cell `(cellX, cellZ)`, generating and
+ * caching it on first access. A random roll determines whether the cell
+ * contains a ravine at all; if it does, all geometric parameters (endpoints,
+ * width, depth, cross-section exponent, flat-bottom settings, and taper
+ * factors) are derived deterministically from the world seed and cell
+ * coordinates. Results are cached on `world.ravineCache` to avoid regenerating
+ * them on every chunk that lies within the search radius.
+ * @param {Object} world - The `World` instance (provides `world.seed` and `world.ravineCache`).
+ * @param {number} cellX - Ravine cell X grid index.
+ * @param {number} cellZ - Ravine cell Z grid index.
+ * @returns {Object|null} Ravine descriptor or `null` if the cell has no ravine.
+ */
 function getRavineInCell(world, cellX, cellZ) {
   const key = `${cellX},${cellZ}`;
   if (world.ravineCache.has(key)) return world.ravineCache.get(key);
@@ -68,6 +122,29 @@ function getRavineInCell(world, cellX, cellZ) {
   return ravine;
 }
 
+/**
+ * Carves ravines into chunk `(cx, cz)` by sampling nearby ravine cells and
+ * computing a tapered, depth-varying cross-section for each column.
+ *
+ * For each (x, z) column the function:
+ * 1. Searches a 5×5 neighbourhood of ravine cells for ravines whose influence
+ *    radius overlaps the column.
+ * 2. For each influencing ravine, computes the carve depth using a power-law
+ *    radial profile that is narrower at the top (`topNarrowFactor`) and wider
+ *    at the bottom (`bottomExpandFactor`), producing the characteristic
+ *    V-to-U ravine shape.
+ * 3. Optionally applies a flat-bottom region where the deepest part of the
+ *    ravine has a constant depth rather than a pointed V profile.
+ * 4. Iterates vertically from `floorY` to `ceilingY` and removes any block
+ *    within the combined influence of all ravines for that column.
+ *
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data (modified in place).
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} worldX0 - World X of the chunk's west edge.
+ * @param {number} worldZ0 - World Z of the chunk's north edge.
+ */
 function carveRavines(world, blocks, cx, cz, worldX0, worldZ0) {
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -142,6 +219,28 @@ function carveRavines(world, blocks, cx, cz, worldX0, worldZ0) {
   }
 }
 
+/**
+ * Carves caves into chunk `(cx, cz)` using two overlapping 3-D fBm noise
+ * thresholds:
+ * - A primary noise field (`nMain`) that carves broad cave volumes where it
+ *   exceeds a threshold that lowers in high-density cave regions.
+ * - A secondary branch field (`nBranch`) that, in dense cave regions, creates
+ *   additional connecting tunnels.
+ * A 2-D `caveRegion` noise controls where cave density is elevated, naturally
+ * concentrating cave systems in certain areas.
+ *
+ * The function also handles surface entrances: in columns where a surface
+ * entrance field and a random roll are both high, it opens a vertical shaft
+ * from the surface downward, optionally extending it into a deeper funnel if
+ * the nearby cave density or the entrance field is strong enough.
+ *
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data (modified in place).
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} worldX0 - World X of the chunk's west edge.
+ * @param {number} worldZ0 - World Z of the chunk's north edge.
+ */
 function carveCaves(world, blocks, cx, cz, worldX0, worldZ0) {
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -192,6 +291,18 @@ function carveCaves(world, blocks, cx, cz, worldX0, worldZ0) {
   }
 }
 
+/**
+ * Entry point called by `World.generateChunkData` after the base terrain fill.
+ * Runs ravine and cave carving in sequence, then enforces that Y=0 is always
+ * Bedrock (carvers may have accidentally cleared it for chunks near the world
+ * bottom). This is the only function exported from this module.
+ * @param {Object} world - The `World` instance.
+ * @param {Uint8Array} blocks - Chunk block data (modified in place).
+ * @param {number} cx - Chunk X grid coordinate.
+ * @param {number} cz - Chunk Z grid coordinate.
+ * @param {number} worldX0 - World X of the chunk's west edge.
+ * @param {number} worldZ0 - World Z of the chunk's north edge.
+ */
 export function applyTerrainCarvers(world, blocks, cx, cz, worldX0, worldZ0) {
   carveRavines(world, blocks, cx, cz, worldX0, worldZ0);
   carveCaves(world, blocks, cx, cz, worldX0, worldZ0);

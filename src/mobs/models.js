@@ -1,5 +1,24 @@
+/**
+ * @module mobs/models
+ * @description Procedural Three.js model builders for every creature and NPC
+ * in the game. Each `build*` function creates a `THREE.Group` (the model root)
+ * by attaching coloured `BoxGeometry` parts via `addPart`, then returns a `rig`
+ * object containing references to animatable bones (legs, arms, wings, tail,
+ * head). `createMobModel` is the public dispatch function that selects the
+ * correct builder based on a mob definition key and an optional questgiver flag.
+ */
+
 import * as THREE from "three";
 
+/**
+ * Creates a single box-shaped body part, adds it to `parent`, and returns the
+ * mesh. Used as the fundamental building block for all creature models.
+ * @param {THREE.Group} parent - The group to attach the part to.
+ * @param {[number, number, number]} size - Width, height, and depth in world units.
+ * @param {[number, number, number]} pos - Local position `[x, y, z]` relative to `parent`.
+ * @param {number} color - Hexadecimal RGB colour.
+ * @returns {THREE.Mesh} The created part mesh.
+ */
 export function addPart(parent, size, pos, color) {
   const g = new THREE.BoxGeometry(size[0], size[1], size[2]);
   const m = new THREE.MeshLambertMaterial({ color });
@@ -9,15 +28,43 @@ export function addPart(parent, size, pos, color) {
   return mesh;
 }
 
+/**
+ * Adds a symmetric pair of eye dots to a creature model at the given Y height
+ * and Z depth. The two dots are offset left and right by `spacing` from the
+ * centre of the head.
+ * @param {THREE.Group} parent - Head group or root group to attach eyes to.
+ * @param {number} y - Local Y position of the eyes.
+ * @param {number} z - Local Z position (positive = front face).
+ * @param {number} [color=0x1b1b1b] - Eye colour.
+ * @param {number} [spacing=0.12] - Half the horizontal distance between the two eyes.
+ */
 export function addEyes(parent, y, z, color = 0x1b1b1b, spacing = 0.12) {
   addPart(parent, [0.06, 0.06, 0.02], [-spacing, y, z], color);
   addPart(parent, [0.06, 0.06, 0.02], [spacing, y, z], color);
 }
 
+/**
+ * Creates an empty rig object with typed arrays for animatable bone references.
+ * The rig is populated by each builder function and consumed by
+ * `MobSystem.animateEntity` to drive leg-swing, wing-flap, and tail-sway
+ * animations each frame.
+ * @param {string} type - Descriptive type string (e.g. `"quadruped"`, `"humanoid"`).
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh|null, head: THREE.Mesh|null}}
+ *   An empty rig ready to be populated by a builder.
+ */
 export function createRig(type) {
   return { type, legs: [], arms: [], wings: [], tail: null, head: null };
 }
 
+/**
+ * Builds the quest-giver NPC model — a robed humanoid with a hat, skin-toned
+ * head and arms, and dark trousers. The model has legs and arms in the rig so
+ * it could be animated, but in practice quest givers are stationary and only
+ * bob vertically.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated rig for the quest-giver.
+ */
 export function buildQuestGiver(root) {
   const rig = createRig("humanoid");
   addPart(root, [0.6, 0.92, 0.34], [0, 0.46, 0], 0x3c6fa1);
@@ -32,6 +79,12 @@ export function buildQuestGiver(root) {
   return rig;
 }
 
+/**
+ * Builds a four-legged deer model with antlers, a small nose, and a tail.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh, head: THREE.Mesh}}
+ *   Populated quadruped rig.
+ */
 export function buildDeer(root) {
   const rig = createRig("quadruped");
   addPart(root, [0.75, 0.44, 0.34], [0, 0.58, 0], 0xa0764f);
@@ -48,6 +101,12 @@ export function buildDeer(root) {
   return rig;
 }
 
+/**
+ * Builds a low-slung lizard model with a long tail and four splayed legs.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh, head: THREE.Mesh}}
+ *   Populated crawler rig.
+ */
 export function buildLizard(root) {
   const rig = createRig("crawler");
   addPart(root, [0.8, 0.22, 0.32], [0, 0.38, 0], 0xb9b06d);
@@ -61,6 +120,12 @@ export function buildLizard(root) {
   return rig;
 }
 
+/**
+ * Builds a colourful parrot model with two wings for flap animation and a beak.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh, head: THREE.Mesh}}
+ *   Populated flying rig.
+ */
 export function buildParrot(root) {
   const rig = createRig("flying");
   addPart(root, [0.32, 0.42, 0.28], [0, 0.64, 0], 0x2ec66b);
@@ -73,6 +138,12 @@ export function buildParrot(root) {
   return rig;
 }
 
+/**
+ * Builds a mountain goat model with two curved horns and four legs.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated quadruped rig.
+ */
 export function buildGoat(root) {
   const rig = createRig("quadruped");
   addPart(root, [0.68, 0.4, 0.3], [0, 0.58, 0], 0xdbdcdf);
@@ -87,6 +158,12 @@ export function buildGoat(root) {
   return rig;
 }
 
+/**
+ * Builds a fluffy white sheep model with a dark head and legs.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated quadruped rig.
+ */
 export function buildSheep(root) {
   const rig = createRig("quadruped");
   addPart(root, [0.74, 0.46, 0.42], [0, 0.58, 0], 0xf0f0ef);
@@ -99,6 +176,13 @@ export function buildSheep(root) {
   return rig;
 }
 
+/**
+ * Builds a reindeer by reusing `buildDeer` and adding two additional pairs of
+ * antler branches to differentiate the species from a standard deer.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh, head: THREE.Mesh}}
+ *   Populated quadruped rig (same as deer).
+ */
 export function buildReindeer(root) {
   const rig = buildDeer(root);
   addPart(root, [0.04, 0.24, 0.04], [0.52, 1.14, 0.14], 0xd8d2bf);
@@ -108,6 +192,17 @@ export function buildReindeer(root) {
   return rig;
 }
 
+/**
+ * Builds a generic humanoid model (used for Bandit and Raider enemies) with
+ * configurable body/skin colours. When `hostileStyle` is `true`, the eyes are
+ * red and a dark helmet is added to visually mark the entity as an enemy.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @param {number} bodyColor - Hexadecimal RGB for the torso and leg colour.
+ * @param {number} skinColor - Hexadecimal RGB for the head and arm colour.
+ * @param {boolean} [hostileStyle=false] - If `true`, adds red eyes and a dark helmet.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated humanoid rig.
+ */
 export function buildHumanoid(root, bodyColor, skinColor, hostileStyle = false) {
   const rig = createRig("humanoid");
   addPart(root, [0.56, 0.88, 0.32], [0, 0.46, 0], bodyColor);
@@ -122,6 +217,13 @@ export function buildHumanoid(root, bodyColor, skinColor, hostileStyle = false) 
   return rig;
 }
 
+/**
+ * Builds a desert Sandstalker — a sand-coloured crawler with red eyes and a
+ * scorpion-like tail.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh, head: THREE.Mesh}}
+ *   Populated crawler rig.
+ */
 export function buildSandStalker(root) {
   const rig = createRig("crawler");
   addPart(root, [0.66, 0.3, 0.32], [0, 0.48, 0], 0x978447);
@@ -135,6 +237,12 @@ export function buildSandStalker(root) {
   return rig;
 }
 
+/**
+ * Builds a jungle Jaguar — a tawny quadruped with red hostile eyes and a long tail.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh, head: THREE.Mesh}}
+ *   Populated quadruped rig.
+ */
 export function buildJaguar(root) {
   const rig = createRig("quadruped");
   addPart(root, [0.74, 0.34, 0.32], [0, 0.54, 0], 0xc2813d);
@@ -148,6 +256,13 @@ export function buildJaguar(root) {
   return rig;
 }
 
+/**
+ * Builds a mountain Rock Wraith — a hulking, stone-grey biped with glowing
+ * amber eyes and massive arms but no tail.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated wraith rig.
+ */
 export function buildRockWraith(root) {
   const rig = createRig("wraith");
   addPart(root, [0.64, 0.86, 0.42], [0, 0.56, 0], 0x798086);
@@ -158,6 +273,13 @@ export function buildRockWraith(root) {
   return rig;
 }
 
+/**
+ * Builds a tundra Yeti — a massive white-furred humanoid with blue eyes and
+ * a wide, imposing silhouette.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated humanoid rig.
+ */
 export function buildYeti(root) {
   const rig = createRig("humanoid");
   addPart(root, [0.78, 0.96, 0.48], [0, 0.58, 0], 0xc8d9e5);
@@ -171,6 +293,16 @@ export function buildYeti(root) {
   return rig;
 }
 
+/**
+ * Creates a Three.js model for a mob or NPC by dispatching to the appropriate
+ * builder function based on `def.key` (for regular mobs) or the `questgiver`
+ * flag (for quest-giver NPCs). For hostile mobs a small red dot is added as a
+ * hostile indicator. Falls back to the sheep model for unknown keys.
+ * @param {{key: string}} def - Mob definition with at minimum a `key` property.
+ * @param {boolean} hostile - If `true`, a red hostile marker dot is appended.
+ * @param {boolean} [questgiver=false] - If `true`, bypasses `def.key` and builds the quest-giver model.
+ * @returns {{root: THREE.Group, rig: Object}} The model group and its animation rig.
+ */
 export function createMobModel(def, hostile, questgiver = false) {
   const root = new THREE.Group();
   let rig;
