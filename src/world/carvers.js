@@ -1,7 +1,7 @@
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
-import { fbm2D, fbm3D } from "../noise.js";
-import { floorDiv, hash2D } from "../random.js";
+import { fbm2D, fbm3D } from "../utils/noise.js";
+import { floorDiv, hash2D } from "../utils/random.js";
 
 const RAVINE_CELL = 96;
 const RAVINE_CHANCE = 0.24;

@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { BLOCKS, FACE } from "./blocks.js";
-import { CHUNK_SIZE, WORLD_HEIGHT } from "./constants.js";
+import { BLOCKS, FACE } from "../blocks.js";
+import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 
 const FACE_DEFS = [
   {

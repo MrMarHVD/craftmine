@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { BlockId, isTransparent } from "../blocks.js";
-import { buildChunkGeometry } from "../chunkMesher.js";
+import { buildChunkGeometry } from "../rendering/chunkMesher.js";
 import { CHUNK_SIZE, RENDER_DISTANCE, SEA_LEVEL, WORLD_HEIGHT } from "../constants.js";
-import { floorDiv, mod } from "../random.js";
+import { floorDiv, mod } from "../utils/random.js";
 import { BIOME, BIOME_NAME, getBiomeBlend, getClimate, getColumnData } from "./biomes.js";
 import { applyCastlesToChunk } from "./castles.js";
 import { applyTerrainCarvers } from "./carvers.js";

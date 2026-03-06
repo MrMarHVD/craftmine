@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BLOCKS, FACE } from "./blocks.js";
+import { BLOCKS, FACE } from "../blocks.js";
 
 const TILE = 16;
 const ATLAS_COLS = 6;

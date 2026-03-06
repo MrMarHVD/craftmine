@@ -1,7 +1,7 @@
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE } from "../constants.js";
-import { valueNoise2D } from "../noise.js";
-import { hash2D } from "../random.js";
+import { valueNoise2D } from "../utils/noise.js";
+import { hash2D } from "../utils/random.js";
 import { BIOME } from "./biomes.js";
 
 export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {

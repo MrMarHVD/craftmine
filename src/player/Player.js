@@ -11,8 +11,8 @@ import {
   TERMINAL_VELOCITY,
   WALK_SPEED,
   WORLD_HEIGHT,
-} from "./constants.js";
-import { isSolid } from "./blocks.js";
+} from "../constants.js";
+import { isSolid } from "../blocks.js";
 
 const EPS = 0.0001;
 

@@ -1,4 +1,4 @@
-import { BLOCKS, BlockId } from "./blocks.js";
+import { BLOCKS, BlockId } from "../blocks.js";
 
 const QUEST_TARGETS = [BlockId.FLOWER_RED, BlockId.FLOWER_YELLOW, BlockId.VINE, BlockId.CACTUS, BlockId.MOSS];
 

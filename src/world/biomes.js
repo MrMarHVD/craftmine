@@ -1,6 +1,6 @@
 import { BlockId } from "../blocks.js";
 import { WORLD_HEIGHT } from "../constants.js";
-import { fbm2D } from "../noise.js";
+import { fbm2D } from "../utils/noise.js";
 
 export const BIOME = {
   DESERT: 0,

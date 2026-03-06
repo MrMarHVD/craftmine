@@ -1,6 +1,6 @@
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
-import { floorDiv, hash2D } from "../random.js";
+import { floorDiv, hash2D } from "../utils/random.js";
 
 const CASTLE_REGION_CHUNKS = 14;
 const CASTLE_REGION_SIZE = CHUNK_SIZE * CASTLE_REGION_CHUNKS;
