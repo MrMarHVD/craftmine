@@ -14,7 +14,7 @@
 
 import * as THREE from "three";
 import { BlockId, isSolid } from "./blocks.js";
-import { CHUNK_SIZE, REACH_DISTANCE } from "./constants.js";
+import { CHUNK_SIZE, DAY_NIGHT_CYCLE_SECONDS, REACH_DISTANCE } from "./constants.js";
 import { MobSystem } from "./mobs/MobSystem.js";
 import { Player } from "./player/Player.js";
 import { QuestSystem } from "./quests/QuestSystem.js";
@@ -45,7 +45,7 @@ const MAX_HEALTH = 100;
 
 const canvas = document.getElementById("app");
 const renderer = createRenderer(canvas);
-const scene = createScene();
+const { scene, sunLight, ambientLight, sunVisual } = createScene();
 const camera = createCamera();
 const atlas = createAtlas();
 
@@ -119,6 +119,9 @@ const targetBox = createTargetBox(scene);
 
 const crackTextures = createCrackTextures();
 const { crackOverlay, crackOverlayMat } = createCrackOverlay(scene, crackTextures);
+const skyDayColor = new THREE.Color(0x89cfff);
+const skyNightColor = new THREE.Color(0x050713);
+const skyBlendColor = new THREE.Color();
 
 /**
  * Mutable container for the block-breaking state machine.
@@ -190,6 +193,56 @@ function resize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+function updateDayNight(timeSec) {
+  const cycle = ((timeSec % DAY_NIGHT_CYCLE_SECONDS) + DAY_NIGHT_CYCLE_SECONDS) % DAY_NIGHT_CYCLE_SECONDS;
+  const phase = cycle / DAY_NIGHT_CYCLE_SECONDS;
+  const angle = phase * Math.PI * 2;
+
+  const altitude = Math.sin(angle);
+  const azimuth = angle - Math.PI * 0.5;
+
+  const orbitRadius = 280;
+  const sunY = player.position.y + altitude * 230;
+  const sunX = player.position.x + Math.cos(azimuth) * orbitRadius;
+  const sunZ = player.position.z + Math.sin(azimuth) * orbitRadius;
+  sunLight.position.set(sunX, sunY, sunZ);
+  sunLight.target.position.set(player.position.x, player.position.y, player.position.z);
+  sunLight.target.updateMatrixWorld();
+
+  const daylight = smoothstep(-0.18, 0.22, altitude);
+  sunLight.intensity = 0.02 + daylight * 1.05;
+  ambientLight.intensity = 0.08 + daylight * 0.38;
+  sunLight.castShadow = daylight > 0.03;
+
+  const skySunDistance = 92;
+  const horiz = Math.sqrt(Math.max(0, 1 - altitude * altitude));
+  const dirX = Math.cos(azimuth) * horiz;
+  const dirY = altitude;
+  const dirZ = Math.sin(azimuth) * horiz;
+  sunVisual.position.set(
+    player.position.x + dirX * skySunDistance,
+    player.position.y + dirY * skySunDistance,
+    player.position.z + dirZ * skySunDistance
+  );
+  const sunVisible = altitude > -0.1;
+  sunVisual.visible = sunVisible;
+  if (sunVisible) {
+    const glow = sunVisual.children[0];
+    const core = sunVisual.children[1];
+    glow.material.opacity = 0.2 + daylight * 0.45;
+    core.scale.setScalar(0.85 + daylight * 0.25);
+  }
+
+  skyBlendColor.lerpColors(skyNightColor, skyDayColor, daylight);
+  scene.background.copy(skyBlendColor);
+  if (scene.fog) scene.fog.color.copy(skyBlendColor);
 }
 
 window.addEventListener("resize", resize);
@@ -360,6 +413,7 @@ function tick(now) {
   prevTime = now;
   const timeSec = now / 1000;
   attackCooldown = Math.max(0, attackCooldown - dt);
+  updateDayNight(timeSec);
 
   if (!isMenuOpen()) {
     player.update(world, dt);

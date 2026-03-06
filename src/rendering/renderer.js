@@ -23,6 +23,8 @@ export function createRenderer(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   return renderer;
 }
 
@@ -38,12 +40,50 @@ export function createScene() {
   scene.background = new THREE.Color(0x89cfff);
   scene.fog = new THREE.Fog(0x89cfff, CHUNK_SIZE * 4.2, CHUNK_SIZE * 7.5);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+  scene.add(ambientLight);
+
   const sun = new THREE.DirectionalLight(0xffffff, 0.8);
   sun.position.set(120, 200, 50);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1536, 1536);
+  sun.shadow.bias = -0.0004;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 520;
+  sun.shadow.camera.left = -110;
+  sun.shadow.camera.right = 110;
+  sun.shadow.camera.top = 110;
+  sun.shadow.camera.bottom = -110;
+  scene.add(sun.target);
   scene.add(sun);
 
-  return scene;
+  const sunVisual = new THREE.Group();
+  const sunCore = new THREE.Mesh(
+    new THREE.SphereGeometry(2.6, 24, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff3a6,
+      fog: false,
+      toneMapped: false,
+      depthWrite: false,
+    })
+  );
+  const sunGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(4.8, 24, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0xffd66b,
+      transparent: true,
+      opacity: 0.42,
+      fog: false,
+      toneMapped: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  sunVisual.add(sunGlow);
+  sunVisual.add(sunCore);
+  scene.add(sunVisual);
+
+  return { scene, sunLight: sun, ambientLight, sunVisual };
 }
 
 /**

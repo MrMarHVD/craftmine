@@ -477,12 +477,16 @@ export class World {
       if (geom.opaque) {
         chunk.opaqueMesh = new THREE.Mesh(geom.opaque, this.materialOpaque);
         chunk.opaqueMesh.frustumCulled = true;
+        chunk.opaqueMesh.castShadow = true;
+        chunk.opaqueMesh.receiveShadow = true;
         this.scene.add(chunk.opaqueMesh);
       }
 
       if (geom.transparent) {
         chunk.transparentMesh = new THREE.Mesh(geom.transparent, this.materialTransparent);
         chunk.transparentMesh.frustumCulled = true;
+        chunk.transparentMesh.castShadow = false;
+        chunk.transparentMesh.receiveShadow = true;
         this.scene.add(chunk.transparentMesh);
       }
 

@@ -49,3 +49,6 @@ export const TERMINAL_VELOCITY = -55;
 
 /** Maximum interval between two Space presses that counts as a double-tap to toggle fly mode, in milliseconds. */
 export const DOUBLE_TAP_MS = 280;
+
+/** Full day-night cycle duration in seconds (10 minutes). */
+export const DAY_NIGHT_CYCLE_SECONDS = 600;
