@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BlockId, isBreakable, isSolid } from "./blocks.js";
+import { BlockId, getBreakDuration, isBreakable, isSolid } from "./blocks.js";
 import { CHUNK_SIZE, REACH_DISTANCE } from "./constants.js";
 import { MobSystem } from "./mobs.js";
 import { Player } from "./player.js";
@@ -14,6 +14,7 @@ const MELEE_REACH = 6;
 const MELEE_CONE_ANGLE = 0.9;
 const BASE_ATTACK_DAMAGE = 12;
 const ATTACK_COOLDOWN = 0.2;
+const BREAK_STAGES = 8;
 const PLACE_BLOCK_BLACKLIST = new Set([
   BlockId.AIR,
   BlockId.BEDROCK,
@@ -103,10 +104,78 @@ const targetBox = new THREE.LineSegments(
 targetBox.visible = false;
 scene.add(targetBox);
 
+function createCrackTextures() {
+  const segments = [
+    [32, 0, 32, 64],
+    [0, 32, 64, 32],
+    [8, 8, 24, 30],
+    [56, 8, 40, 30],
+    [8, 56, 24, 34],
+    [56, 56, 40, 34],
+    [16, 0, 30, 18],
+    [48, 0, 34, 18],
+    [0, 16, 18, 30],
+    [64, 16, 46, 30],
+    [0, 48, 18, 34],
+    [64, 48, 46, 34],
+    [16, 64, 30, 46],
+    [48, 64, 34, 46],
+    [24, 24, 8, 40],
+    [40, 24, 56, 40],
+    [24, 40, 8, 24],
+    [40, 40, 56, 24],
+  ];
+
+  const textures = [];
+  for (let stage = 0; stage < BREAK_STAGES; stage++) {
+    const c = document.createElement("canvas");
+    c.width = 64;
+    c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, 64, 64);
+    const lines = Math.floor(((stage + 1) / BREAK_STAGES) * segments.length);
+    ctx.strokeStyle = `rgba(30, 30, 30, ${(0.22 + stage * 0.08).toFixed(2)})`;
+    ctx.lineWidth = 3;
+    for (let i = 0; i < lines; i++) {
+      const s = segments[i];
+      ctx.beginPath();
+      ctx.moveTo(s[0], s[1]);
+      ctx.lineTo(s[2], s[3]);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.NearestFilter;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    textures.push(tex);
+  }
+  return textures;
+}
+
+const crackTextures = createCrackTextures();
+const crackOverlayMat = new THREE.MeshBasicMaterial({
+  map: crackTextures[0],
+  transparent: true,
+  opacity: 1,
+  depthWrite: false,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -2,
+});
+const crackOverlay = new THREE.Mesh(new THREE.BoxGeometry(1.014, 1.014, 1.014), crackOverlayMat);
+crackOverlay.visible = false;
+scene.add(crackOverlay);
+
 let selectedIndex = 0;
 let currentTarget = null;
 let nearestQuestGiver = null;
 let spawnPoint = new THREE.Vector3(0, 40, 0);
+let leftMouseDown = false;
+let suppressBreakUntilMouseUp = false;
+let breakState = null;
 
 function isMenuOpen() {
   return ui.isInventoryOpen() || ui.isDialogueOpen() || ui.isDebugOpen();
@@ -145,6 +214,11 @@ canvas.addEventListener("click", () => {
 });
 
 document.addEventListener("pointerlockchange", () => {
+  if (document.pointerLockElement !== canvas) {
+    leftMouseDown = false;
+    suppressBreakUntilMouseUp = false;
+    clearBreakState();
+  }
   refreshOverlayVisibility();
 });
 
@@ -233,6 +307,71 @@ function canPlaceAt(x, y, z) {
   );
 }
 
+function clearBreakState() {
+  breakState = null;
+  crackOverlay.visible = false;
+}
+
+function startOrContinueBreakTarget(target) {
+  if (!target || !isBreakable(target.id)) {
+    clearBreakState();
+    return;
+  }
+  if (
+    breakState &&
+    breakState.x === target.x &&
+    breakState.y === target.y &&
+    breakState.z === target.z &&
+    breakState.id === target.id
+  ) {
+    return;
+  }
+  breakState = {
+    x: target.x,
+    y: target.y,
+    z: target.z,
+    id: target.id,
+    progress: 0,
+    duration: getBreakDuration(target.id),
+  };
+  crackOverlay.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5);
+  crackOverlayMat.map = crackTextures[0];
+  crackOverlayMat.needsUpdate = true;
+  crackOverlay.visible = true;
+}
+
+function updateBreakMining(dt) {
+  if (suppressBreakUntilMouseUp || !leftMouseDown) {
+    clearBreakState();
+    return;
+  }
+  if (document.pointerLockElement !== canvas || isMenuOpen()) {
+    clearBreakState();
+    return;
+  }
+  if (!currentTarget || !isBreakable(currentTarget.id)) {
+    clearBreakState();
+    return;
+  }
+
+  startOrContinueBreakTarget(currentTarget);
+  if (!breakState) return;
+
+  breakState.progress += dt / Math.max(0.05, breakState.duration);
+  const stage = Math.min(BREAK_STAGES - 1, Math.floor(breakState.progress * BREAK_STAGES));
+  crackOverlay.position.set(breakState.x + 0.5, breakState.y + 0.5, breakState.z + 0.5);
+  crackOverlayMat.map = crackTextures[stage];
+  crackOverlayMat.needsUpdate = true;
+  crackOverlay.visible = true;
+
+  if (breakState.progress >= 1) {
+    world.setBlock(breakState.x, breakState.y, breakState.z, BlockId.AIR);
+    ui.addItem(breakState.id, 1);
+    breakState = null;
+    crackOverlay.visible = false;
+  }
+}
+
 function getAttackDamage(itemId) {
   switch (itemId) {
     case BlockId.WEAPON_BANDIT_BLADE:
@@ -256,24 +395,27 @@ window.addEventListener("mousedown", (e) => {
   if (document.pointerLockElement !== canvas || isMenuOpen()) return;
 
   if (e.button === 0) {
-    if (attackCooldown > 0) return;
+    leftMouseDown = true;
 
-    camera.getWorldDirection(dir);
-    const attack = mobs.attackNearestInFront(
-      camera.position,
-      dir,
-      MELEE_REACH,
-      MELEE_CONE_ANGLE,
-      getAttackDamage(ui.getSelectedBlock())
-    );
-    attackCooldown = ATTACK_COOLDOWN;
-    if (attack) return;
-
-    if (!currentTarget) return;
-    if (isBreakable(currentTarget.id)) {
-      world.setBlock(currentTarget.x, currentTarget.y, currentTarget.z, BlockId.AIR);
-      ui.addItem(currentTarget.id, 1);
+    if (attackCooldown <= 0) {
+      camera.getWorldDirection(dir);
+      const attack = mobs.attackNearestInFront(
+        camera.position,
+        dir,
+        MELEE_REACH,
+        MELEE_CONE_ANGLE,
+        getAttackDamage(ui.getSelectedBlock())
+      );
+      attackCooldown = ATTACK_COOLDOWN;
+      if (attack) {
+        suppressBreakUntilMouseUp = true;
+        clearBreakState();
+        return;
+      }
     }
+
+    suppressBreakUntilMouseUp = false;
+    startOrContinueBreakTarget(currentTarget);
   }
 
   if (e.button === 2) {
@@ -290,6 +432,13 @@ window.addEventListener("mousedown", (e) => {
     if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
   }
+});
+
+window.addEventListener("mouseup", (e) => {
+  if (e.button !== 0) return;
+  leftMouseDown = false;
+  suppressBreakUntilMouseUp = false;
+  clearBreakState();
 });
 
 let prevTime = performance.now();
@@ -341,6 +490,7 @@ function tick(now) {
 
   camera.getWorldDirection(dir);
   currentTarget = voxelRaycast(world, camera.position, dir, REACH_DISTANCE);
+  updateBreakMining(dt);
   if (currentTarget && !isMenuOpen()) {
     targetBox.visible = true;
     targetBox.position.set(currentTarget.x + 0.5, currentTarget.y + 0.5, currentTarget.z + 0.5);

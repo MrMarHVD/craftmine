@@ -127,3 +127,33 @@ export function isTransparent(id) {
 export function isBreakable(id) {
   return id !== BlockId.AIR && id !== BlockId.BEDROCK;
 }
+
+export function getBreakDuration(id) {
+  switch (id) {
+    case BlockId.FLOWER_RED:
+    case BlockId.FLOWER_YELLOW:
+    case BlockId.VINE:
+      return 0.12;
+    case BlockId.LEAVES:
+    case BlockId.APPLE:
+      return 0.2;
+    case BlockId.WATER:
+      return 0.25;
+    case BlockId.DIRT:
+    case BlockId.GRASS:
+    case BlockId.SAND:
+    case BlockId.SNOW:
+    case BlockId.MOSS:
+      return 0.5;
+    case BlockId.LOG:
+    case BlockId.CACTUS:
+      return 0.8;
+    case BlockId.STONE:
+    case BlockId.GRAVEL:
+      return 1.35;
+    case BlockId.CASTLE_BRICK:
+      return 1.75;
+    default:
+      return 0.6;
+  }
+}
