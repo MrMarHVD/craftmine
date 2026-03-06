@@ -92,6 +92,7 @@ export class WorldRoom {
     this.send(server, {
       type: "welcome",
       id: playerId,
+      serverNowMs: Date.now(),
       players: [...this.players.values()],
       blocks: [...this.blocks.entries()].map(([k, id]) => {
         const [x, y, z] = k.split(",").map((n) => Number(n));
@@ -179,7 +180,7 @@ export class WorldRoom {
   broadcastSnapshot() {
     if (this.players.size === 0) return;
     const players = [...this.players.values()];
-    this.broadcast({ type: "players_snapshot", players });
+    this.broadcast({ type: "players_snapshot", players, serverNowMs: Date.now() });
   }
 
   send(socket, msg) {

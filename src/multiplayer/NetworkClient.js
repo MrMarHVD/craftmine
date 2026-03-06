@@ -113,7 +113,7 @@ export class NetworkClient {
         this.onPlayerLeave(msg.id);
         break;
       case PROTO.PLAYERS_SNAPSHOT:
-        this.onPlayersSnapshot(msg.players ?? []);
+        this.onPlayersSnapshot(msg);
         break;
       case PROTO.BLOCK_SET:
         this.onBlockSet(msg);

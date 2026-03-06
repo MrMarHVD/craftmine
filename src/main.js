@@ -95,6 +95,7 @@ function getOrCreatePlayerName() {
 
 let netStatus = "offline";
 let sessionStarted = false;
+let serverTimeOffsetMs = 0;
 
 function setNamePromptVisible(visible) {
   namePromptEl.classList.toggle("visible", visible);
@@ -110,6 +111,7 @@ function startMultiplayerSession(playerName) {
     },
     onWelcome: (msg) => {
       netStatus = "connected";
+      if (Number.isFinite(msg.serverNowMs)) serverTimeOffsetMs = msg.serverNowMs - Date.now();
       remotePlayers.applyWelcome(msg.players ?? []);
       for (const b of msg.blocks ?? []) {
         world.setBlock(b.x, b.y, b.z, b.id);
@@ -121,8 +123,9 @@ function startMultiplayerSession(playerName) {
     onPlayerLeave: (id) => {
       remotePlayers.removePlayer(id);
     },
-    onPlayersSnapshot: (players) => {
-      remotePlayers.applySnapshot(players);
+    onPlayersSnapshot: (msg) => {
+      if (Number.isFinite(msg.serverNowMs)) serverTimeOffsetMs = msg.serverNowMs - Date.now();
+      remotePlayers.applySnapshot(msg.players ?? []);
     },
     onBlockSet: (msg) => {
       world.setBlock(msg.x, msg.y, msg.z, msg.id);
@@ -493,10 +496,10 @@ let chunkTick = 0;
 function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
-  const timeSec = now / 1000;
+  const syncedTimeSec = (Date.now() + serverTimeOffsetMs) / 1000;
   attackCooldown = Math.max(0, attackCooldown - dt);
-  const daylight = updateDayNight(timeSec);
-  clouds.update(player.position, dt, timeSec, daylight);
+  const daylight = updateDayNight(syncedTimeSec);
+  clouds.update(player.position, dt, syncedTimeSec, daylight);
   net?.tick(dt);
 
   if (!isMenuOpen()) {
@@ -519,7 +522,7 @@ function tick(now) {
 
   world.rebuildOneChunk();
   world.rebuildOneChunk();
-  mobs.update(player.position, dt, timeSec, debugSettings.agroEnabled);
+  mobs.update(player.position, dt, syncedTimeSec, debugSettings.agroEnabled);
 
   if (debugSettings.healthEnabled) {
     incomingDamageCooldown -= dt;
