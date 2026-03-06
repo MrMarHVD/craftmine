@@ -293,6 +293,28 @@ body {
   display: block;
 }
 
+#terrain-map-wrap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 208px;
+  height: 208px;
+  padding: 6px;
+  background: rgba(8, 13, 20, 0.88);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+#terrain-map {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #081019;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
 .debug-title {
   font-size: 15px;
   margin-bottom: 8px;

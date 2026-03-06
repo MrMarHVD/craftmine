@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voxel World Engine</title>
-    <script type="module" crossorigin src="/assets/index-COqtaPyv.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BPE0niDY.css">
+    <script type="module" crossorigin src="/assets/index-DAHbotUt.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CtX5u35x.css">
   </head>
   <body>
     <div id="game-ui">
@@ -44,8 +44,15 @@
         <div id="dbg-walk-value" class="debug-value"></div>
         <label class="debug-row">Fly Speed <input id="dbg-fly" type="range" min="1" max="300" step="1" /></label>
         <div id="dbg-fly-value" class="debug-value"></div>
+        <label class="debug-row">Map Width (blocks) <input id="dbg-map-width" type="range" min="24" max="192" step="4" /></label>
+        <div id="dbg-map-width-value" class="debug-value"></div>
+        <label class="debug-row">Map Height (blocks) <input id="dbg-map-height" type="range" min="24" max="192" step="4" /></label>
+        <div id="dbg-map-height-value" class="debug-value"></div>
         <label class="debug-row checkbox"><input id="dbg-health" type="checkbox" /> Health System</label>
         <label class="debug-row checkbox"><input id="dbg-agro" type="checkbox" /> Hostile Agro</label>
+      </div>
+      <div id="terrain-map-wrap">
+        <canvas id="terrain-map" width="192" height="192"></canvas>
       </div>
     </div>
     <canvas id="app"></canvas>

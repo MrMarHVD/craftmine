@@ -6,6 +6,7 @@ import { Player } from "./player/Player.js";
 import { QuestSystem } from "./quests/QuestSystem.js";
 import { voxelRaycast } from "./utils/raycast.js";
 import { createAtlas } from "./rendering/textureAtlas.js";
+import { TerrainMapRenderer } from "./ui/TerrainMapRenderer.js";
 import { UI } from "./ui/UI.js";
 import { World } from "./world.js";
 import { createRenderer, createScene, createCamera, createMaterials, createTargetBox } from "./rendering/renderer.js";
@@ -43,6 +44,8 @@ const player = new Player(camera, canvas);
 const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 }));
 
 const ui = new UI(inventory);
+const terrainMapCanvas = document.getElementById("terrain-map");
+const terrainMap = new TerrainMapRenderer(terrainMapCanvas);
 const quests = new QuestSystem(ui, worldSeed + 191);
 const mobs = new MobSystem(scene, world, {
   onEnemyKilled: (payload) => {
@@ -54,6 +57,8 @@ const mobs = new MobSystem(scene, world, {
 const debugSettings = {
   walkSpeed: 5.2,
   flySpeed: 11.5,
+  mapWidthBlocks: 96,
+  mapHeightBlocks: 96,
   healthEnabled: true,
   agroEnabled: true,
 };
@@ -63,9 +68,12 @@ let incomingDamageCooldown = 0;
 let attackCooldown = 0;
 
 player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
+terrainMap.setBlockSpan(debugSettings.mapWidthBlocks, debugSettings.mapHeightBlocks);
 ui.setupDebugPane(debugSettings, (patch) => {
   if (patch.walkSpeed !== undefined) debugSettings.walkSpeed = patch.walkSpeed;
   if (patch.flySpeed !== undefined) debugSettings.flySpeed = Math.min(300, patch.flySpeed);
+  if (patch.mapWidthBlocks !== undefined) debugSettings.mapWidthBlocks = Math.max(24, Math.min(192, patch.mapWidthBlocks));
+  if (patch.mapHeightBlocks !== undefined) debugSettings.mapHeightBlocks = Math.max(24, Math.min(192, patch.mapHeightBlocks));
   if (patch.healthEnabled !== undefined) {
     debugSettings.healthEnabled = patch.healthEnabled;
     if (!debugSettings.healthEnabled) health = MAX_HEALTH;
@@ -73,6 +81,7 @@ ui.setupDebugPane(debugSettings, (patch) => {
   if (patch.agroEnabled !== undefined) debugSettings.agroEnabled = patch.agroEnabled;
 
   player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
+  terrainMap.setBlockSpan(debugSettings.mapWidthBlocks, debugSettings.mapHeightBlocks);
 });
 
 ui.setHotbarSelection(0);
@@ -333,6 +342,7 @@ function tick(now) {
     fpsFrames = 0;
   }
 
+  terrainMap.render(world, player.position, timeSec);
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }

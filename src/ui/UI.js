@@ -47,6 +47,10 @@ export class UI {
     this.debugWalkValueEl = document.getElementById("dbg-walk-value");
     this.debugFlyEl = document.getElementById("dbg-fly");
     this.debugFlyValueEl = document.getElementById("dbg-fly-value");
+    this.debugMapWidthEl = document.getElementById("dbg-map-width");
+    this.debugMapWidthValueEl = document.getElementById("dbg-map-width-value");
+    this.debugMapHeightEl = document.getElementById("dbg-map-height");
+    this.debugMapHeightValueEl = document.getElementById("dbg-map-height-value");
     this.debugHealthEl = document.getElementById("dbg-health");
     this.debugAgroEl = document.getElementById("dbg-agro");
 
@@ -134,9 +138,11 @@ export class UI {
   setupDebugPane(config, onChange) {
     this.debugWalkEl.value = String(config.walkSpeed);
     this.debugFlyEl.value = String(config.flySpeed);
+    this.debugMapWidthEl.value = String(config.mapWidthBlocks);
+    this.debugMapHeightEl.value = String(config.mapHeightBlocks);
     this.debugHealthEl.checked = !!config.healthEnabled;
     this.debugAgroEl.checked = !!config.agroEnabled;
-    this.updateDebugValues(config.walkSpeed, config.flySpeed);
+    this.updateDebugValues(config.walkSpeed, config.flySpeed, config.mapWidthBlocks, config.mapHeightBlocks);
 
     this.debugWalkEl.addEventListener("input", () => {
       const walkSpeed = Number(this.debugWalkEl.value);
@@ -146,17 +152,46 @@ export class UI {
 
     this.debugFlyEl.addEventListener("input", () => {
       const flySpeed = Math.min(300, Number(this.debugFlyEl.value));
-      this.updateDebugValues(Number(this.debugWalkEl.value), flySpeed);
+      this.updateDebugValues(
+        Number(this.debugWalkEl.value),
+        flySpeed,
+        Number(this.debugMapWidthEl.value),
+        Number(this.debugMapHeightEl.value)
+      );
       onChange({ flySpeed });
+    });
+
+    this.debugMapWidthEl.addEventListener("input", () => {
+      const mapWidthBlocks = Number(this.debugMapWidthEl.value);
+      this.updateDebugValues(
+        Number(this.debugWalkEl.value),
+        Number(this.debugFlyEl.value),
+        mapWidthBlocks,
+        Number(this.debugMapHeightEl.value)
+      );
+      onChange({ mapWidthBlocks });
+    });
+
+    this.debugMapHeightEl.addEventListener("input", () => {
+      const mapHeightBlocks = Number(this.debugMapHeightEl.value);
+      this.updateDebugValues(
+        Number(this.debugWalkEl.value),
+        Number(this.debugFlyEl.value),
+        Number(this.debugMapWidthEl.value),
+        mapHeightBlocks
+      );
+      onChange({ mapHeightBlocks });
     });
 
     this.debugHealthEl.addEventListener("change", () => onChange({ healthEnabled: this.debugHealthEl.checked }));
     this.debugAgroEl.addEventListener("change", () => onChange({ agroEnabled: this.debugAgroEl.checked }));
   }
 
-  updateDebugValues(walkSpeed, flySpeed) {
+  updateDebugValues(walkSpeed, flySpeed, mapWidthBlocks, mapHeightBlocks) {
     this.debugWalkValueEl.textContent = `Current: ${walkSpeed.toFixed(1)}`;
     this.debugFlyValueEl.textContent = `Current: ${flySpeed.toFixed(0)} (max 300)`;
+    this.debugMapWidthValueEl.textContent = `Current: ${Math.round(mapWidthBlocks)} blocks`;
+    this.debugMapHeightValueEl.textContent = `Current: ${Math.round(mapHeightBlocks)} blocks`;
   }
 
   isDebugOpen() {
