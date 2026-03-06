@@ -21,6 +21,7 @@ import { QuestSystem } from "./quests/QuestSystem.js";
 import { voxelRaycast } from "./utils/raycast.js";
 import { createAtlas } from "./rendering/textureAtlas.js";
 import { CloudSystem } from "./rendering/CloudSystem.js";
+import bgmDefaultTrack from "./audio/bgm/bgm_default.mp3";
 import { TerrainMapRenderer } from "./ui/TerrainMapRenderer.js";
 import { UI } from "./ui/UI.js";
 import { World } from "./world.js";
@@ -57,6 +58,9 @@ const worldSeed = 20260304;
 const world = new World(scene, atlas, worldSeed);
 world.setupMaterials(matOpaque, matTransparent);
 const clouds = new CloudSystem(scene, worldSeed + 55123);
+const bgmAudio = new Audio(bgmDefaultTrack);
+bgmAudio.loop = true;
+bgmAudio.preload = "auto";
 
 const player = new Player(camera, canvas);
 const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 }));
@@ -76,13 +80,14 @@ const mobs = new MobSystem(scene, world, {
  * Runtime configuration object that mirrors the values shown in the debug pane.
  * Mutated by `ui.setupDebugPane`'s `onChange` callback when the player adjusts
  * sliders or toggles in the debug panel.
- * @type {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, healthEnabled: boolean, agroEnabled: boolean}}
+ * @type {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, bgmVolume: number, healthEnabled: boolean, agroEnabled: boolean}}
  */
 const debugSettings = {
   walkSpeed: 5.2,
   flySpeed: 11.5,
   mapWidthBlocks: 96,
   mapHeightBlocks: 96,
+  bgmVolume: 0.45,
   healthEnabled: true,
   agroEnabled: true,
 };
@@ -96,13 +101,24 @@ let incomingDamageCooldown = 0;
 /** Remaining cooldown in seconds before the player can attack again. */
 let attackCooldown = 0;
 
+function setBgmVolume(v) {
+  bgmAudio.volume = Math.max(0, Math.min(1, v));
+}
+
+function tryStartBgm() {
+  if (!bgmAudio.paused) return;
+  bgmAudio.play().catch(() => {});
+}
+
 player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
 terrainMap.setBlockSpan(debugSettings.mapWidthBlocks, debugSettings.mapHeightBlocks);
+setBgmVolume(debugSettings.bgmVolume);
 ui.setupDebugPane(debugSettings, (patch) => {
   if (patch.walkSpeed !== undefined) debugSettings.walkSpeed = patch.walkSpeed;
   if (patch.flySpeed !== undefined) debugSettings.flySpeed = Math.min(300, patch.flySpeed);
   if (patch.mapWidthBlocks !== undefined) debugSettings.mapWidthBlocks = Math.max(24, Math.min(192, patch.mapWidthBlocks));
   if (patch.mapHeightBlocks !== undefined) debugSettings.mapHeightBlocks = Math.max(24, Math.min(192, patch.mapHeightBlocks));
+  if (patch.bgmVolume !== undefined) debugSettings.bgmVolume = Math.max(0, Math.min(1, patch.bgmVolume));
   if (patch.healthEnabled !== undefined) {
     debugSettings.healthEnabled = patch.healthEnabled;
     if (!debugSettings.healthEnabled) health = MAX_HEALTH;
@@ -111,6 +127,8 @@ ui.setupDebugPane(debugSettings, (patch) => {
 
   player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
   terrainMap.setBlockSpan(debugSettings.mapWidthBlocks, debugSettings.mapHeightBlocks);
+  setBgmVolume(debugSettings.bgmVolume);
+  tryStartBgm();
 });
 
 ui.setHotbarSelection(0);
@@ -251,6 +269,8 @@ function updateDayNight(timeSec) {
 
 window.addEventListener("resize", resize);
 window.addEventListener("contextmenu", (e) => e.preventDefault());
+window.addEventListener("pointerdown", tryStartBgm);
+window.addEventListener("keydown", tryStartBgm);
 
 canvas.addEventListener("click", () => {
   if (isMenuOpen()) return;

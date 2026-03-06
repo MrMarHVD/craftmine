@@ -89,6 +89,8 @@ export class UI {
     this.debugMapWidthValueEl = document.getElementById("dbg-map-width-value");
     this.debugMapHeightEl = document.getElementById("dbg-map-height");
     this.debugMapHeightValueEl = document.getElementById("dbg-map-height-value");
+    this.debugBgmEl = document.getElementById("dbg-bgm");
+    this.debugBgmValueEl = document.getElementById("dbg-bgm-value");
     this.debugHealthEl = document.getElementById("dbg-health");
     this.debugAgroEl = document.getElementById("dbg-agro");
 
@@ -192,7 +194,7 @@ export class UI {
    * callback and populates their initial values from `config`. Each input fires
    * `onChange` with a partial patch object so `main.js` can apply only the
    * changed property to `debugSettings`.
-   * @param {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, healthEnabled: boolean, agroEnabled: boolean}} config - Initial values for the debug controls.
+   * @param {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, bgmVolume: number, healthEnabled: boolean, agroEnabled: boolean}} config - Initial values for the debug controls.
    * @param {function(Object): void} onChange - Called with a partial patch whenever any control changes.
    */
   setupDebugPane(config, onChange) {
@@ -200,13 +202,20 @@ export class UI {
     this.debugFlyEl.value = String(config.flySpeed);
     this.debugMapWidthEl.value = String(config.mapWidthBlocks);
     this.debugMapHeightEl.value = String(config.mapHeightBlocks);
+    this.debugBgmEl.value = String(config.bgmVolume);
     this.debugHealthEl.checked = !!config.healthEnabled;
     this.debugAgroEl.checked = !!config.agroEnabled;
-    this.updateDebugValues(config.walkSpeed, config.flySpeed, config.mapWidthBlocks, config.mapHeightBlocks);
+    this.updateDebugValues(config.walkSpeed, config.flySpeed, config.mapWidthBlocks, config.mapHeightBlocks, config.bgmVolume);
 
     this.debugWalkEl.addEventListener("input", () => {
       const walkSpeed = Number(this.debugWalkEl.value);
-      this.updateDebugValues(walkSpeed, Number(this.debugFlyEl.value));
+      this.updateDebugValues(
+        walkSpeed,
+        Number(this.debugFlyEl.value),
+        Number(this.debugMapWidthEl.value),
+        Number(this.debugMapHeightEl.value),
+        Number(this.debugBgmEl.value)
+      );
       onChange({ walkSpeed });
     });
 
@@ -216,7 +225,8 @@ export class UI {
         Number(this.debugWalkEl.value),
         flySpeed,
         Number(this.debugMapWidthEl.value),
-        Number(this.debugMapHeightEl.value)
+        Number(this.debugMapHeightEl.value),
+        Number(this.debugBgmEl.value)
       );
       onChange({ flySpeed });
     });
@@ -227,7 +237,8 @@ export class UI {
         Number(this.debugWalkEl.value),
         Number(this.debugFlyEl.value),
         mapWidthBlocks,
-        Number(this.debugMapHeightEl.value)
+        Number(this.debugMapHeightEl.value),
+        Number(this.debugBgmEl.value)
       );
       onChange({ mapWidthBlocks });
     });
@@ -238,9 +249,22 @@ export class UI {
         Number(this.debugWalkEl.value),
         Number(this.debugFlyEl.value),
         Number(this.debugMapWidthEl.value),
-        mapHeightBlocks
+        mapHeightBlocks,
+        Number(this.debugBgmEl.value)
       );
       onChange({ mapHeightBlocks });
+    });
+
+    this.debugBgmEl.addEventListener("input", () => {
+      const bgmVolume = Number(this.debugBgmEl.value);
+      this.updateDebugValues(
+        Number(this.debugWalkEl.value),
+        Number(this.debugFlyEl.value),
+        Number(this.debugMapWidthEl.value),
+        Number(this.debugMapHeightEl.value),
+        bgmVolume
+      );
+      onChange({ bgmVolume });
     });
 
     this.debugHealthEl.addEventListener("change", () => onChange({ healthEnabled: this.debugHealthEl.checked }));
@@ -253,12 +277,14 @@ export class UI {
    * @param {number} flySpeed - Current fly speed in blocks per second.
    * @param {number} mapWidthBlocks - Current terrain map width in blocks.
    * @param {number} mapHeightBlocks - Current terrain map height in blocks.
+   * @param {number} bgmVolume - Current background music volume in [0, 1].
    */
-  updateDebugValues(walkSpeed, flySpeed, mapWidthBlocks, mapHeightBlocks) {
+  updateDebugValues(walkSpeed, flySpeed, mapWidthBlocks, mapHeightBlocks, bgmVolume) {
     this.debugWalkValueEl.textContent = `Current: ${walkSpeed.toFixed(1)}`;
     this.debugFlyValueEl.textContent = `Current: ${flySpeed.toFixed(0)} (max 300)`;
     this.debugMapWidthValueEl.textContent = `Current: ${Math.round(mapWidthBlocks)} blocks`;
     this.debugMapHeightValueEl.textContent = `Current: ${Math.round(mapHeightBlocks)} blocks`;
+    this.debugBgmValueEl.textContent = `Current: ${Math.round(bgmVolume * 100)}%`;
   }
 
   /**
