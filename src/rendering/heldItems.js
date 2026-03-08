@@ -26,6 +26,10 @@ function makeMaterial(color, emissive = 0x000000) {
   return new THREE.MeshLambertMaterial({ color, emissive });
 }
 
+function makePose(position, rotation, scale = 1) {
+  return { position, rotation, scale };
+}
+
 function addMesh(root, geo, mat, pos, rot = null) {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(pos);
@@ -173,6 +177,57 @@ function buildSpade(root, materials, headColor, handleColor) {
   addBox(root, materials, new THREE.Vector3(0.11, 0.16, 0.05), new THREE.Vector3(0, 0.13, 0), headColor);
 }
 
+function applyPose(model, pose) {
+  if (!model || !pose) return;
+  model.position.copy(pose.position);
+  model.rotation.set(pose.rotation.x, pose.rotation.y, pose.rotation.z);
+  model.scale.setScalar(pose.scale ?? 1);
+}
+
+function getHeldItemPose(itemId, isFirstPerson = false) {
+  switch (itemId) {
+    case BlockId.WOOD_AXE:
+    case BlockId.STONE_AXE:
+    case BlockId.WEAPON_YETI_AXE:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.08, -0.04, 0.02), new THREE.Euler(-0.18, 0.18, 0.86), 1)
+        : makePose(new THREE.Vector3(0.03, -0.04, 0.02), new THREE.Euler(0.2, 0.12, 1.12), 0.82);
+    case BlockId.WOOD_PICKAXE:
+    case BlockId.STONE_PICKAXE:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.06, -0.05, 0.01), new THREE.Euler(-0.14, 0.1, 0.94), 1)
+        : makePose(new THREE.Vector3(0.03, -0.04, 0.01), new THREE.Euler(0.16, 0.08, 1.16), 0.82);
+    case BlockId.WOOD_SPADE:
+    case BlockId.STONE_SPADE:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.05, -0.06, 0.02), new THREE.Euler(-0.12, 0.12, 0.52), 1)
+        : makePose(new THREE.Vector3(0.02, -0.05, 0.01), new THREE.Euler(0.14, 0.1, 0.7), 0.82);
+    case BlockId.WOOD_SWORD:
+    case BlockId.STONE_SWORD:
+    case BlockId.WEAPON_BANDIT_BLADE:
+    case BlockId.WEAPON_RAIDER_SABER:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.04, -0.08, 0.02), new THREE.Euler(-0.05, 0.1, 0.22), 1)
+        : makePose(new THREE.Vector3(0.01, -0.05, 0.01), new THREE.Euler(0.12, 0.08, 0.4), 0.82);
+    case BlockId.WEAPON_WRAITH_HAMMER:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.07, -0.08, 0.01), new THREE.Euler(-0.12, 0.18, 0.68), 1)
+        : makePose(new THREE.Vector3(0.03, -0.06, 0.01), new THREE.Euler(0.14, 0.1, 0.92), 0.8);
+    case BlockId.WEAPON_SCORP_BOW:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.01, -0.06, 0.02), new THREE.Euler(0.02, 0.18, 1.36), 1)
+        : makePose(new THREE.Vector3(0.02, -0.05, 0.02), new THREE.Euler(0.12, 0.12, 1.54), 0.85);
+    case BlockId.WEAPON_JAGUAR_CLAWS:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.02, -0.03, 0.03), new THREE.Euler(0.18, 0.2, 0.16), 1)
+        : makePose(new THREE.Vector3(0.01, -0.02, 0.03), new THREE.Euler(0.22, 0.16, 0.22), 0.82);
+    default:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0, 0, 0), new THREE.Euler(0, 0, 0), 0.9)
+        : makePose(new THREE.Vector3(0, 0, 0), new THREE.Euler(0, 0, 0), 0.75);
+  }
+}
+
 export function isDisplayableHeldItem(itemId) {
   return Number.isFinite(itemId) && itemId > BlockId.AIR;
 }
@@ -271,7 +326,7 @@ export class LocalHeldItemView {
     }
     const model = createHeldItemModel(nextId);
     if (!model) return;
-    model.scale.setScalar(0.9);
+    applyPose(model, getHeldItemPose(nextId, true));
     this.root.add(model);
     this.currentModel = model;
   }
@@ -297,7 +352,8 @@ export function updateHeldItemAnchor(anchor, itemId, scale = 1) {
   anchor.userData.itemId = nextId;
   const model = createHeldItemModel(nextId);
   if (!model) return;
-  model.scale.setScalar(scale);
+  applyPose(model, getHeldItemPose(nextId, false));
+  model.scale.multiplyScalar(scale);
   anchor.add(model);
   anchor.userData.model = model;
 }

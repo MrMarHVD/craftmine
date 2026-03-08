@@ -14,6 +14,7 @@ import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 import { fbm2D, fbm3D } from "../utils/noise.js";
 import { floorDiv, hash2D } from "../utils/random.js";
+import { WORLD_SPAWN_CONFIG } from "./spawnConfig.js";
 
 /**
  * Width of each ravine placement cell in world blocks.
@@ -26,8 +27,6 @@ const RAVINE_CELL = 96;
  * Probability (0–1) that a given cell contains a ravine.
  * @type {number}
  */
-const RAVINE_CHANCE = 0.24;
-
 /**
  * Clamps a value to [0, 1].
  * @param {number} v - Input value.
@@ -86,7 +85,7 @@ function getRavineInCell(world, cellX, cellZ) {
   if (world.ravineCache.has(key)) return world.ravineCache.get(key);
 
   const roll = hash2D(cellX, cellZ, world.seed + 74111);
-  if (roll > RAVINE_CHANCE) {
+  if (roll > WORLD_SPAWN_CONFIG.ravineChance) {
     world.ravineCache.set(key, null);
     return null;
   }

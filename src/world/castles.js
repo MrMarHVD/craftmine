@@ -13,6 +13,7 @@
 import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../constants.js";
 import { floorDiv, hash2D } from "../utils/random.js";
+import { WORLD_SPAWN_CONFIG } from "./spawnConfig.js";
 
 /**
  * Width/depth of each castle placement region in world blocks.
@@ -28,8 +29,6 @@ const CASTLE_REGION_SIZE = CHUNK_SIZE * CASTLE_REGION_CHUNKS;
  * Probability (0–1) that a given region contains a castle.
  * @type {number}
  */
-const CASTLE_SPAWN_CHANCE = 0.045;
-
 /**
  * A minimal seeded linear-congruential generator (LCG) used exclusively for
  * castle layout generation. Using a separate deterministic RNG keeps castle
@@ -87,7 +86,7 @@ export function getCastleForRegion(world, regionX, regionZ) {
   if (world.castleCache.has(key)) return world.castleCache.get(key);
 
   const spawnRoll = hash2D(regionX, regionZ, world.seed + 42031);
-  if (spawnRoll > CASTLE_SPAWN_CHANCE) {
+  if (spawnRoll > WORLD_SPAWN_CONFIG.castleSpawnChance) {
     world.castleCache.set(key, null);
     return null;
   }

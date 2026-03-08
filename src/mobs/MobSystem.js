@@ -13,6 +13,7 @@ import { BlockId } from "../blocks.js";
 import { CHUNK_SIZE, RENDER_DISTANCE, WORLD_HEIGHT } from "../constants.js";
 import { floorDiv, hash2D } from "../utils/random.js";
 import { BIOME, BIOME_NAME } from "../world.js";
+import { WORLD_SPAWN_CONFIG } from "../world/spawnConfig.js";
 import { createMobModel } from "./models.js";
 import { createHealthBarSprite, createDamageHalo, updateHealthBarSprite } from "./healthBar.js";
 
@@ -26,8 +27,6 @@ const HOSTILE_SITE_CELL = 384;
  * Probability (0–1) that a given cell contains a hostile site.
  * @type {number}
  */
-const HOSTILE_SITE_CHANCE = 0.56;
-
 /**
  * Maximum distance from the player in world blocks within which hostile sites
  * are spawned and kept active.
@@ -202,7 +201,7 @@ export class MobSystem {
 
     const questRoll = hash2D(chunk.cx, chunk.cz, 45019);
     const canQuestgiver = biome === BIOME.FOREST || biome === BIOME.PLAINS || biome === BIOME.JUNGLE;
-    if (canQuestgiver && questRoll > 0.93) created.push(this.spawnQuestGiver(chunk, biome));
+    if (canQuestgiver && questRoll > 1 - WORLD_SPAWN_CONFIG.questgiverChance) created.push(this.spawnQuestGiver(chunk, biome));
 
     this.chunkSpawns.set(key, created.filter(Boolean));
   }
@@ -222,7 +221,7 @@ export class MobSystem {
     if (this.hostileSites.has(key)) return this.hostileSites.get(key);
 
     const roll = hash2D(cellX, cellZ, 88901);
-    if (roll > HOSTILE_SITE_CHANCE) {
+    if (roll > WORLD_SPAWN_CONFIG.hostileSiteChance) {
       this.hostileSites.set(key, null);
       return null;
     }

@@ -16,6 +16,7 @@ import { CHUNK_SIZE } from "../constants.js";
 import { valueNoise2D } from "../utils/noise.js";
 import { hash2D } from "../utils/random.js";
 import { BIOME } from "./biomes.js";
+import { FEATURE_SPAWN_RULES, matchesSpawnWindow } from "./spawnConfig.js";
 
 /**
  * Iterates over a padded region around chunk `(cx, cz)` and stamps
@@ -49,57 +50,58 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
       const stableSurface = hasStableSurface(world, blocks, cx, cz, x, y, z);
       const h = hash2D(x, z, world.seed + 9001);
       const cluster = valueNoise2D(x * 0.03, z * 0.03, world.seed + 9002);
+      const biomeRules = FEATURE_SPAWN_RULES[c.dominantBiome] ?? null;
 
       if (c.dominantBiome === BIOME.FOREST) {
-        if (stableSurface && h > 0.981 && cluster > 0.42 && c.surface === BlockId.GRASS) {
+        if (stableSurface && matchesSpawnWindow(biomeRules.tree, h, cluster, y) && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 4) | 0), 2, false);
         }
-        if (stableSurface && h > 0.973 && h <= 0.981 && cluster > 0.46 && c.surface === BlockId.GRASS) {
+        if (stableSurface && matchesSpawnWindow(biomeRules.appleTree, h, cluster, y) && c.surface === BlockId.GRASS) {
           placeAppleTree(world, blocks, cx, cz, x, y + 1, z, 5 + ((h * 3) | 0));
         }
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.93 && h < 0.948) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.flowerRed, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_RED);
         }
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.948 && h < 0.965) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.flowerYellow, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.967 && h < 0.972 && cluster > 0.48) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.bramble, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.BRAMBLE);
         }
       }
 
       if (c.dominantBiome === BIOME.JUNGLE) {
-        if (stableSurface && h > 0.972 && cluster > 0.34 && c.surface === BlockId.GRASS) {
+        if (stableSurface && matchesSpawnWindow(biomeRules.tree, h, cluster, y) && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 6 + ((h * 5) | 0), 3, true);
         }
-        if (stableSurface && above === BlockId.AIR && h > 0.88 && h < 0.94 && c.surface === BlockId.GRASS) {
+        if (stableSurface && above === BlockId.AIR && matchesSpawnWindow(biomeRules.moss, h, cluster, y) && c.surface === BlockId.GRASS) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.MOSS);
         }
-        if (stableSurface && above === BlockId.AIR && h > 0.942 && h < 0.957 && c.surface === BlockId.GRASS) {
+        if (stableSurface && above === BlockId.AIR && matchesSpawnWindow(biomeRules.flowerYellow, h, cluster, y) && c.surface === BlockId.GRASS) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.957 && h < 0.965 && cluster > 0.44) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.bramble, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.BRAMBLE);
         }
       }
 
       if (c.dominantBiome === BIOME.DESERT) {
-        if (h > 0.972 && cluster > 0.3 && c.surface === BlockId.SAND) {
+        if (matchesSpawnWindow(biomeRules.cactus, h, cluster, y) && c.surface === BlockId.SAND) {
           const cactusH = 2 + ((h * 5) | 0);
           for (let i = 0; i < cactusH; i++) {
             world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1 + i, z, BlockId.CACTUS);
           }
         }
-        if (above === BlockId.AIR && h > 0.93 && h < 0.945 && c.surface === BlockId.SAND) {
+        if (above === BlockId.AIR && matchesSpawnWindow(biomeRules.gravel, h, cluster, y) && c.surface === BlockId.SAND) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.GRAVEL);
         }
       }
 
       if (c.dominantBiome === BIOME.MOUNTAIN) {
-        if (above === BlockId.AIR && h > 0.89 && h < 0.93 && y > 68) {
+        if (above === BlockId.AIR && matchesSpawnWindow(biomeRules.gravel, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.GRAVEL);
         }
-        if (h > 0.988 && cluster > 0.5 && y > 70) {
+        if (matchesSpawnWindow(biomeRules.spire, h, cluster, y)) {
           const spire = 2 + ((h * 4) | 0);
           for (let i = 0; i < spire; i++) {
             world.setGeneratedBlockIfInChunk(
@@ -116,25 +118,25 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
       }
 
       if (c.dominantBiome === BIOME.PLAINS) {
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.86 && h < 0.915) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.flowerRed, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_RED);
         }
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.915 && h < 0.965) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.flowerYellow, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
-        if (stableSurface && h > 0.992 && cluster > 0.45 && c.surface === BlockId.GRASS) {
+        if (stableSurface && matchesSpawnWindow(biomeRules.tree, h, cluster, y) && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 3) | 0), 2, false);
         }
-        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.966 && h < 0.972 && cluster > 0.4) {
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && matchesSpawnWindow(biomeRules.bramble, h, cluster, y)) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.BRAMBLE);
         }
       }
 
       if (c.dominantBiome === BIOME.TUNDRA) {
-        if (above === BlockId.AIR && h > 0.94 && h < 0.97 && c.surface === BlockId.SNOW) {
+        if (above === BlockId.AIR && matchesSpawnWindow(biomeRules.gravel, h, cluster, y) && c.surface === BlockId.SNOW) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.GRAVEL);
         }
-        if (h > 0.991 && cluster > 0.5 && c.surface === BlockId.SNOW) {
+        if (matchesSpawnWindow(biomeRules.tree, h, cluster, y) && c.surface === BlockId.SNOW) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 3) | 0), 1, false);
         }
       }
