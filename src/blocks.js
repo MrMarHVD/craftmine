@@ -89,6 +89,8 @@ export const BlockId = {
   BOW: 36,
   /** Basic arrow ammunition for bows. */
   ARROW: 37,
+  /** Placeable test block that spawns one wizard-led oreum group. */
+  WIZARD_GROUP_SPAWNER: 38,
 };
 
 /**
@@ -282,6 +284,12 @@ export const BLOCKS = {
     transparent: true,
     textures: { all: "stone" },
   },
+  [BlockId.WIZARD_GROUP_SPAWNER]: {
+    name: "Wizard Group Spawner",
+    solid: true,
+    transparent: false,
+    textures: { all: "wizard_group_spawner" },
+  },
 };
 
 /**
@@ -350,6 +358,7 @@ export function getBreakDuration(id) {
     case BlockId.STONE:
     case BlockId.GRAVEL:
     case BlockId.SKELETON_SPAWNER:
+    case BlockId.WIZARD_GROUP_SPAWNER:
       return 1.35;
     case BlockId.CASTLE_BRICK:
       return 1.75;

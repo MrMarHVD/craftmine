@@ -269,6 +269,18 @@ export function createIcon(blockId) {
       ctx.fillStyle = "rgba(214,54,54,0.95)";
       ctx.fillRect(9, 18, 6, 3);
       break;
+    case BlockId.WIZARD_GROUP_SPAWNER:
+      drawNoise(ctx, 78, 60, 108, 12);
+      ctx.fillStyle = "rgba(30,22,48,0.95)";
+      ctx.fillRect(3, 3, 18, 18);
+      ctx.strokeStyle = "rgba(168,112,255,0.92)";
+      ctx.strokeRect(3.5, 3.5, 17, 17);
+      ctx.fillStyle = "rgba(252,184,76,0.95)";
+      ctx.fillRect(10, 4, 4, 5);
+      ctx.fillStyle = "rgba(232,228,255,0.95)";
+      ctx.fillRect(8, 10, 8, 5);
+      ctx.fillRect(7, 15, 10, 2);
+      break;
     default:
       drawNoise(ctx, 90, 90, 90, 10);
       break;

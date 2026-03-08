@@ -1,12 +1,15 @@
 import * as THREE from "three";
-import { isSolid } from "../blocks.js";
+import { BlockId, isBreakable, isSolid } from "../blocks.js";
 
 export const ARROW_GRAVITY = 20;
 export const PLAYER_ARROW_SPEED = 28;
 export const SKELETON_ARROW_SPEED = 30;
 const ARROW_LIFETIME = 5;
+const FIREBALL_LIFETIME = 4.5;
 const PLAYER_ARROW_DAMAGE = 18;
 const SKELETON_ARROW_DAMAGE = 12;
+const FIREBALL_DIRECT_DAMAGE = 26;
+const FIREBALL_EXPLOSION_RADIUS = 3.25;
 
 function intersectRayAabb(origin, direction, min, max) {
   let tmin = -Infinity;
@@ -77,6 +80,30 @@ function makeArrowMesh(color = 0xcfd4db, featherColor = 0xc94a4a) {
   return root;
 }
 
+function makeFireballMesh() {
+  const root = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffb347 })
+  );
+  root.add(core);
+  const aura = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff6a1e, transparent: true, opacity: 0.38, depthWrite: false })
+  );
+  root.add(aura);
+  const light = new THREE.PointLight(0xff9a36, 1.5, 7, 2);
+  root.add(light);
+  root.userData.dispose = () => {
+    root.traverse((node) => {
+      if (!node.isMesh) return;
+      node.geometry?.dispose?.();
+      node.material?.dispose?.();
+    });
+  };
+  return root;
+}
+
 export function solveBallisticVelocity(origin, target, speed, gravity = ARROW_GRAVITY) {
   const dx = target.x - origin.x;
   const dz = target.z - origin.z;
@@ -133,6 +160,29 @@ export class ProjectileSystem {
     return projectile;
   }
 
+  spawnFireball({ origin, velocity, ownerEntityId = null }) {
+    const id = this.nextId++;
+    const mesh = makeFireballMesh();
+    mesh.position.copy(origin);
+    this.scene.add(mesh);
+    const projectile = {
+      id,
+      type: "fireball",
+      mesh,
+      position: origin.clone(),
+      velocity: velocity.clone(),
+      ownerType: "mob",
+      ownerEntityId,
+      hitMobs: true,
+      hitPlayer: true,
+      damage: FIREBALL_DIRECT_DAMAGE,
+      life: FIREBALL_LIFETIME,
+    };
+    this.alignArrow(projectile);
+    this.projectiles.set(id, projectile);
+    return projectile;
+  }
+
   firePlayerArrow(origin, direction, itemDamage) {
     const velocity = direction.clone().multiplyScalar(PLAYER_ARROW_SPEED);
     return this.spawnArrow({
@@ -157,6 +207,14 @@ export class ProjectileSystem {
     });
   }
 
+  fireWizardFireball(origin, direction, ownerEntityId) {
+    return this.spawnFireball({
+      origin,
+      velocity: direction.clone().normalize().multiplyScalar(16.5),
+      ownerEntityId,
+    });
+  }
+
   alignArrow(projectile) {
     this.tmpDir.copy(projectile.velocity).normalize();
     projectile.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), this.tmpDir);
@@ -168,6 +226,40 @@ export class ProjectileSystem {
     this.scene.remove(projectile.mesh);
     projectile.mesh.userData.dispose?.();
     this.projectiles.delete(id);
+  }
+
+  explode(position, ownerEntityId = null) {
+    const radius = FIREBALL_EXPLOSION_RADIUS;
+    const ceilRadius = Math.ceil(radius);
+    for (let y = -ceilRadius; y <= ceilRadius; y++) {
+      for (let z = -ceilRadius; z <= ceilRadius; z++) {
+        for (let x = -ceilRadius; x <= ceilRadius; x++) {
+          const dist = Math.hypot(x, y, z);
+          if (dist > radius) continue;
+          const wx = Math.floor(position.x + x);
+          const wy = Math.floor(position.y + y);
+          const wz = Math.floor(position.z + z);
+          const id = this.world.getBlock(wx, wy, wz);
+          if (!isBreakable(id) || id === BlockId.WATER) continue;
+          const chance = 1 - dist / radius;
+          if (chance > 0.18 + Math.random() * 0.35) this.world.setBlock(wx, wy, wz, BlockId.AIR);
+        }
+      }
+    }
+
+    this.mobs.damageEntitiesInRadius(position, radius + 0.5, 22, ownerEntityId, (entity) => {
+      if (ownerEntityId === null) return true;
+      return this.mobs.areEntitiesHostile(ownerEntityId, entity.id);
+    });
+    if (this.hitPlayerOnSegment(position, position.clone().addScalar(0.0001), this.lastPlayerRef)) {
+      this.onPlayerHit(28, null);
+    } else {
+      const playerPos = this.lastPlayerRef?.position;
+      if (playerPos) {
+        const d = playerPos.distanceTo(position);
+        if (d <= radius + 0.8) this.onPlayerHit(Math.max(8, Math.round(28 * (1 - d / (radius + 0.8)))), null);
+      }
+    }
   }
 
   hitSolidOnSegment(from, to) {
@@ -200,6 +292,7 @@ export class ProjectileSystem {
   }
 
   update(dt, player) {
+    this.lastPlayerRef = player;
     for (const [id, projectile] of this.projectiles) {
       this.tmpFrom.copy(projectile.position);
       projectile.velocity.y -= ARROW_GRAVITY * dt;
@@ -207,6 +300,7 @@ export class ProjectileSystem {
       this.tmpTo.copy(projectile.position);
 
       if (this.hitSolidOnSegment(this.tmpFrom, this.tmpTo)) {
+        if (projectile.type === "fireball") this.explode(this.tmpTo, projectile.ownerEntityId);
         this.removeProjectile(id);
         continue;
       }
@@ -217,14 +311,16 @@ export class ProjectileSystem {
           return this.mobs.areEntitiesHostile(projectile.ownerEntityId, entity.id);
         });
         if (hit) {
-          this.mobs.damageEntity(hit, projectile.damage);
+          if (projectile.type === "fireball") this.explode(hit.mesh.position, projectile.ownerEntityId);
+          else this.mobs.damageEntity(hit, projectile.damage);
           this.removeProjectile(id);
           continue;
         }
       }
 
       if (projectile.hitPlayer && this.hitPlayerOnSegment(this.tmpFrom, this.tmpTo, player)) {
-        this.onPlayerHit(projectile.damage, projectile);
+        if (projectile.type === "fireball") this.explode(player.position, projectile.ownerEntityId);
+        else this.onPlayerHit(projectile.damage, projectile);
         this.removeProjectile(id);
         continue;
       }

@@ -23,6 +23,7 @@ const BLOCK_COLOR_BY_ID = {
   [BlockId.SKELETON_SPAWNER]: 0x60656f,
   [BlockId.BOW]: 0xa46b39,
   [BlockId.ARROW]: 0xbbbec8,
+  [BlockId.WIZARD_GROUP_SPAWNER]: 0x6b53a1,
 };
 
 function makeMaterial(color, emissive = 0x000000) {

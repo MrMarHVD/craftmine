@@ -47,6 +47,7 @@ const TILES = [
   "plank",
   "bramble",
   "skeleton_spawner",
+  "wizard_group_spawner",
 ];
 
 /**
@@ -219,6 +220,21 @@ function drawTile(tile) {
     ctx.fillRect(6, 7, 1, 1);
     ctx.fillRect(9, 7, 1, 1);
     ctx.fillRect(7, 10, 2, 1);
+  } else if (tile === "wizard_group_spawner") {
+    withNoise(ctx, [74, 58, 106], 14);
+    ctx.fillStyle = "rgba(30,22,48,0.92)";
+    ctx.fillRect(2, 2, TILE - 4, TILE - 4);
+    ctx.strokeStyle = "rgba(168,112,255,0.9)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(2.5, 2.5, TILE - 5, TILE - 5);
+    ctx.fillStyle = "rgba(96,70,150,0.85)";
+    for (let x = 3; x <= TILE - 4; x += 4) ctx.fillRect(x, 2, 1, TILE - 4);
+    ctx.fillStyle = "rgba(255,186,76,0.95)";
+    ctx.fillRect(7, 3, 2, 3);
+    ctx.fillRect(6, 6, 4, 2);
+    ctx.fillStyle = "rgba(226,220,255,0.96)";
+    ctx.fillRect(5, 9, 6, 4);
+    ctx.fillRect(4, 13, 8, 1);
   }
 
   return c;

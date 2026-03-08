@@ -5,6 +5,8 @@ export const WORLD_SPAWN_CONFIG = {
   castleSpawnChance: 0.045,
   hostileSiteChance: 0.56,
   questgiverChance: 0.07,
+  nightSkeletonChunkChance: 0.045,
+  wizardGroupChance: 0.018,
 };
 
 export const FEATURE_SPAWN_RULES = {

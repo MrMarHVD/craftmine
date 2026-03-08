@@ -25,6 +25,7 @@ import { createHealthBarSprite, createDamageHalo, updateHealthBarSprite } from "
  * @type {number}
  */
 const HOSTILE_SITE_CELL = 384;
+const WIZARD_SITE_CELL = 576;
 
 /**
  * Probability (0–1) that a given cell contains a hostile site.
@@ -120,6 +121,14 @@ const SKELETON_DEF = {
   color: 0xe5e2d6,
   speed: 1.95,
   health: 54,
+  drop: null,
+};
+const WIZARD_DEF = {
+  key: "wizard",
+  name: "Wizard",
+  color: 0x5a3d8c,
+  speed: 1.45,
+  health: 78,
   drop: null,
 };
 
@@ -257,6 +266,9 @@ export class MobSystem {
     this.hostileSites = new Map();
     this.hostileSiteSpawns = new Map();
     this.skeletonSpawnerSpawns = new Map();
+    this.wizardGroupSites = new Map();
+    this.wizardGroupSpawns = new Map();
+    this.nightChunkSpawns = new Map();
     this.nextId = 1;
     this.spawnTick = 0;
 
@@ -287,6 +299,12 @@ export class MobSystem {
     updateHeldItemAnchor(anchor, itemId, scale);
     entity.heldAnchor = anchor;
     entity.heldItemId = itemId;
+  }
+
+  isNight(timeSec) {
+    const phase = (((timeSec % 600) + 600) % 600) / 600;
+    const altitude = Math.sin(phase * Math.PI * 2);
+    return altitude < -0.02;
   }
 
   /**
@@ -442,6 +460,114 @@ export class MobSystem {
     return id;
   }
 
+  spawnWizardAt(x, surfaceY, z, sourceKey, sourceType = "wizard-site") {
+    const { root, rig } = createMobModel(WIZARD_DEF, true, false);
+    const id = this.nextId++;
+    const y = surfaceY + 1.02;
+    root.position.set(x + 0.5, y, z + 0.5);
+
+    const entity = {
+      id,
+      sourceType,
+      sourceKey,
+      biome: this.world.getBiomeAt(x, z),
+      kind: "mob",
+      key: WIZARD_DEF.key,
+      name: WIZARD_DEF.name,
+      hostile: true,
+      flying: false,
+      intelligent: true,
+      speed: WIZARD_DEF.speed,
+      mesh: root,
+      rig,
+      vx: 0,
+      vz: 0,
+      wanderTimer: 0.8 + hash2D(id, x, 8133) * 2.4,
+      attackTimer: 0,
+      homeY: y,
+      homeX: x + 0.5,
+      homeZ: z + 0.5,
+      patrolRadius: 6.5,
+      animPhase: hash2D(id, x, 9247) * Math.PI * 2,
+      groupId: sourceKey,
+      maxHealth: WIZARD_DEF.health,
+      health: WIZARD_DEF.health,
+      dropItem: WIZARD_DEF.drop,
+      damageFlash: 0,
+      shootCooldown: 1.7 + hash2D(id, z, 6329) * 0.9,
+      faction: FACTION.OREUM,
+      targetEntityId: null,
+      aimPitch: 0,
+      aimYawLocal: 0,
+      ranged: true,
+      wizardCaster: true,
+      meleeCooldown: 0,
+      modelYawOffset: getModelYawOffset(WIZARD_DEF.key, rig?.type, false),
+    };
+
+    createHealthBarSprite(entity);
+    createDamageHalo(entity);
+    this.entities.set(id, entity);
+    this.attachEntityMesh(entity);
+    return entity;
+  }
+
+  spawnSkeletonGroupMember(x, surfaceY, z, sourceKey, leaderEntity, offsetIndex = 0, sourceType = "wizard-site") {
+    const { root, rig } = createMobModel(SKELETON_DEF, true, false);
+    const weaponId = hash2D(x * 19 + offsetIndex, z * 13 + this.nextId, this.world.seed + 9123) > 0.5 ? BlockId.BOW : BlockId.STONE_SWORD;
+    const id = this.nextId++;
+    const y = surfaceY + 1.02;
+    root.position.set(x + 0.5, y, z + 0.5);
+
+    const entity = {
+      id,
+      sourceType,
+      sourceKey,
+      biome: this.world.getBiomeAt(x, z),
+      kind: "mob",
+      key: SKELETON_DEF.key,
+      name: SKELETON_DEF.name,
+      hostile: true,
+      flying: false,
+      intelligent: true,
+      speed: SKELETON_DEF.speed,
+      mesh: root,
+      rig,
+      vx: 0,
+      vz: 0,
+      wanderTimer: 0.5 + hash2D(id, x, 8119) * 1.8,
+      attackTimer: 0,
+      homeY: y,
+      homeX: x + 0.5,
+      homeZ: z + 0.5,
+      patrolRadius: 5.5,
+      animPhase: hash2D(id, z, 9231) * Math.PI * 2,
+      groupId: sourceKey,
+      leaderId: leaderEntity?.id ?? null,
+      leaderOffsetAngle: (Math.PI * 2 * offsetIndex) / 5,
+      leaderOffsetRadius: 2.8 + hash2D(id, x, 8117) * 2.3,
+      maxHealth: SKELETON_DEF.health,
+      health: SKELETON_DEF.health,
+      dropItem: SKELETON_DEF.drop,
+      damageFlash: 0,
+      ranged: weaponId === BlockId.BOW,
+      shootCooldown: 1.1 + hash2D(x, z, 6311) * 0.8,
+      faction: FACTION.OREUM,
+      targetEntityId: null,
+      aimPitch: 0,
+      aimYawLocal: 0,
+      meleeCooldown: 0,
+      modelYawOffset: getModelYawOffset(SKELETON_DEF.key, rig?.type, false),
+    };
+
+    createHealthBarSprite(entity);
+    createDamageHalo(entity);
+    this.attachHeldItem(entity, weaponId, 1);
+    this.entities.set(id, entity);
+    this.attachEntityMesh(entity);
+    return entity;
+  }
+
   findSkeletonSpawnerPosition(spawnerX, spawnerY, spawnerZ) {
     const candidates = [
       [2, 0],
@@ -473,56 +599,8 @@ export class MobSystem {
   spawnSkeletonFromSpawner(spawnerX, spawnerY, spawnerZ, spawnerKey) {
     const spawnPos = this.findSkeletonSpawnerPosition(spawnerX, spawnerY, spawnerZ);
     if (!spawnPos) return null;
-
-    const { root, rig } = createMobModel(SKELETON_DEF, true, false);
-    const weaponId = hash2D(spawnerX * 31 + spawnerY, spawnerZ * 17 + this.nextId, this.world.seed + 9123) > 0.5 ? BlockId.BOW : BlockId.STONE_SWORD;
-    const id = this.nextId++;
-    root.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
-
-    const entity = {
-      id,
-      sourceType: "spawner",
-      sourceKey: spawnerKey,
-      biome: this.world.getBiomeAt(spawnerX, spawnerZ),
-      kind: "mob",
-      key: SKELETON_DEF.key,
-      name: SKELETON_DEF.name,
-      hostile: true,
-      flying: false,
-      intelligent: false,
-      speed: SKELETON_DEF.speed,
-      mesh: root,
-      rig,
-      vx: 0,
-      vz: 0,
-      wanderTimer: 0.5 + hash2D(id, spawnerX, 8119) * 1.8,
-      attackTimer: 0,
-      homeY: spawnPos.homeY,
-      homeX: spawnerX + 0.5,
-      homeZ: spawnerZ + 0.5,
-      patrolRadius: 6.5,
-      animPhase: hash2D(id, spawnerZ, 9231) * Math.PI * 2,
-      groupId: spawnerKey,
-      maxHealth: SKELETON_DEF.health,
-      health: SKELETON_DEF.health,
-      dropItem: SKELETON_DEF.drop,
-      damageFlash: 0,
-      ranged: weaponId === BlockId.BOW,
-      shootCooldown: 1.1 + hash2D(spawnerX, spawnerZ, 6311) * 0.8,
-      faction: FACTION.OREUM,
-      targetEntityId: null,
-      aimPitch: 0,
-      aimYawLocal: 0,
-      modelYawOffset: getModelYawOffset(SKELETON_DEF.key, rig?.type, false),
-    };
-
-    createHealthBarSprite(entity);
-    createDamageHalo(entity);
-    this.attachHeldItem(entity, weaponId, 1);
-
-    this.entities.set(id, entity);
-    this.attachEntityMesh(entity);
-    return id;
+    const entity = this.spawnSkeletonGroupMember(spawnerX, spawnPos.homeY - 1.02, spawnerZ, spawnerKey, null, 0, "spawner");
+    return entity?.id ?? null;
   }
 
   /**
@@ -830,6 +908,22 @@ export class MobSystem {
     return { killed: false, name: entity.name, key: entity.key };
   }
 
+  damageEntitiesInRadius(center, radius, damage, excludeEntityId = null, predicate = null) {
+    const r2 = radius * radius;
+    for (const entity of this.entities.values()) {
+      if (entity.kind !== "mob" || entity.health <= 0) continue;
+      if (excludeEntityId !== null && entity.id === excludeEntityId) continue;
+      if (predicate && !predicate(entity)) continue;
+      const dx = entity.mesh.position.x - center.x;
+      const dy = entity.mesh.position.y - center.y;
+      const dz = entity.mesh.position.z - center.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > r2) continue;
+      const scale = Math.max(0.35, 1 - Math.sqrt(d2) / radius);
+      this.damageEntity(entity, Math.max(1, Math.round(damage * scale)));
+    }
+  }
+
   /**
    * Scans all hostile site cells within `HOSTILE_SPAWN_RANGE` of the player
    * and calls `spawnHostileSite` for any site that is close enough and has not
@@ -856,6 +950,96 @@ export class MobSystem {
     }
   }
 
+  getWizardGroupSite(cellX, cellZ) {
+    const key = `${cellX},${cellZ}`;
+    if (this.wizardGroupSites.has(key)) return this.wizardGroupSites.get(key);
+
+    const roll = hash2D(cellX, cellZ, 99101);
+    if (roll > WORLD_SPAWN_CONFIG.wizardGroupChance) {
+      this.wizardGroupSites.set(key, null);
+      return null;
+    }
+
+    const margin = 72;
+    const x = cellX * WIZARD_SITE_CELL + margin + Math.floor(hash2D(cellX, cellZ, 99111) * (WIZARD_SITE_CELL - margin * 2));
+    const z = cellZ * WIZARD_SITE_CELL + margin + Math.floor(hash2D(cellX, cellZ, 99121) * (WIZARD_SITE_CELL - margin * 2));
+    const groupSize = 2 + ((hash2D(cellX, cellZ, 99131) * 4) | 0);
+    const site = { key, x, z, groupSize };
+    this.wizardGroupSites.set(key, site);
+    return site;
+  }
+
+  spawnWizardGroup(site, sourceType = "wizard-site") {
+    if (this.wizardGroupSpawns.has(site.key)) return;
+
+    const ids = [];
+    const surfaceY = findTopSolidY(this.world, site.x, site.z);
+    const wizard = this.spawnWizardAt(site.x, surfaceY, site.z, site.key, sourceType);
+    if (!wizard) return;
+    ids.push(wizard.id);
+
+    for (let i = 0; i < site.groupSize; i++) {
+      const a = hash2D(i, site.x, 99201) * Math.PI * 2;
+      const r = 2.4 + hash2D(i, site.z, 99211) * 3.6;
+      const sx = Math.floor(site.x + Math.cos(a) * r);
+      const sz = Math.floor(site.z + Math.sin(a) * r);
+      const sy = findTopSolidY(this.world, sx, sz);
+      const skeleton = this.spawnSkeletonGroupMember(sx, sy, sz, site.key, wizard, i + 1, sourceType);
+      if (skeleton) ids.push(skeleton.id);
+    }
+
+    this.wizardGroupSpawns.set(site.key, ids);
+  }
+
+  spawnNightMobs(playerPos, timeSec) {
+    if (!this.isNight(timeSec)) return;
+
+    for (const chunk of this.world.loaded.values()) {
+      const centerX = chunk.cx * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      const centerZ = chunk.cz * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      const biome = this.world.getBiomeAt(centerX, centerZ);
+      if (biome !== BIOME.PLAINS && biome !== BIOME.TUNDRA) continue;
+
+      const key = `night:${chunk.key}`;
+      const existing = this.nightChunkSpawns.get(key) ?? [];
+      const alive = existing.filter((id) => this.entities.has(id));
+      if (alive.length > 0) {
+        this.nightChunkSpawns.set(key, alive);
+      } else {
+        const roll = hash2D(chunk.cx, chunk.cz, 99301);
+        if (roll <= WORLD_SPAWN_CONFIG.nightSkeletonChunkChance) {
+          const spawned = this.spawnMob(chunk, biome, SKELETON_DEF, true);
+          const entity = this.entities.get(spawned);
+          if (entity) {
+            entity.faction = FACTION.OREUM;
+            entity.ranged = hash2D(chunk.cx, chunk.cz, 99311) > 0.5;
+            entity.shootCooldown = 0.9 + hash2D(chunk.cx, chunk.cz, 99321) * 0.8;
+            if (entity.ranged) this.attachHeldItem(entity, BlockId.BOW, 1);
+            else this.attachHeldItem(entity, BlockId.STONE_SWORD, 1);
+            entity.sourceType = "night-chunk";
+            entity.sourceKey = key;
+            this.nightChunkSpawns.set(key, [spawned]);
+          }
+        }
+      }
+    }
+
+    const minCellX = floorDiv(playerPos.x - HOSTILE_SPAWN_RANGE, WIZARD_SITE_CELL);
+    const maxCellX = floorDiv(playerPos.x + HOSTILE_SPAWN_RANGE, WIZARD_SITE_CELL);
+    const minCellZ = floorDiv(playerPos.z - HOSTILE_SPAWN_RANGE, WIZARD_SITE_CELL);
+    const maxCellZ = floorDiv(playerPos.z + HOSTILE_SPAWN_RANGE, WIZARD_SITE_CELL);
+    for (let cz = minCellZ; cz <= maxCellZ; cz++) {
+      for (let cx = minCellX; cx <= maxCellX; cx++) {
+        const site = this.getWizardGroupSite(cx, cz);
+        if (!site) continue;
+        const dx = site.x - playerPos.x;
+        const dz = site.z - playerPos.z;
+        if (dx * dx + dz * dz > HOSTILE_SPAWN_RANGE * HOSTILE_SPAWN_RANGE) continue;
+        this.spawnWizardGroup(site);
+      }
+    }
+  }
+
   /**
    * Called once per second to synchronise the entity population with the
    * current world state. Spawns natural mobs for any newly loaded chunk,
@@ -863,13 +1047,15 @@ export class MobSystem {
    * from the player, and cleans up stale spawn-tracking entries.
    * @param {THREE.Vector3} playerPos - Current player position.
    */
-  syncSpawns(playerPos) {
+  syncSpawns(playerPos, timeSec) {
     for (const chunk of this.world.loaded.values()) {
       this.spawnForChunk(chunk);
     }
 
     this.spawnHostilesNear(playerPos);
     this.syncSkeletonSpawnerSpawns(playerPos);
+    this.syncWizardGroupSpawners(playerPos);
+    this.spawnNightMobs(playerPos, timeSec);
 
     const maxDist = (RENDER_DISTANCE + 6) * CHUNK_SIZE;
     const maxDistSq = maxDist * maxDist;
@@ -886,6 +1072,22 @@ export class MobSystem {
 
     for (const [siteKey, ids] of this.hostileSiteSpawns.entries()) {
       if (!ids.some((id) => this.entities.has(id))) this.hostileSiteSpawns.delete(siteKey);
+    }
+
+    for (const [siteKey, ids] of this.wizardGroupSpawns.entries()) {
+      if (!ids.some((id) => this.entities.has(id))) this.wizardGroupSpawns.delete(siteKey);
+    }
+
+    for (const [chunkKey, ids] of this.nightChunkSpawns.entries()) {
+      if (!ids.some((id) => this.entities.has(id))) this.nightChunkSpawns.delete(chunkKey);
+    }
+
+    if (!this.isNight(timeSec)) {
+      for (const [id, e] of this.entities) {
+        if (e.sourceType === "night-chunk" || e.sourceType === "wizard-site") this.removeEntity(id);
+      }
+      this.nightChunkSpawns.clear();
+      this.wizardGroupSpawns.clear();
     }
   }
 
@@ -929,6 +1131,48 @@ export class MobSystem {
       if (activeSpawnerKeys.has(spawnerKey)) continue;
       for (const id of ids) this.removeEntity(id);
       this.skeletonSpawnerSpawns.delete(spawnerKey);
+    }
+  }
+
+  syncWizardGroupSpawners(playerPos) {
+    const activeSpawnerKeys = new Set();
+    const maxDistSq = HOSTILE_SPAWN_RANGE * HOSTILE_SPAWN_RANGE;
+
+    for (const [chunkKey, mods] of this.world.modified.entries()) {
+      const chunk = this.world.loaded.get(chunkKey);
+      if (!chunk) continue;
+
+      for (const [idx, id] of mods.entries()) {
+        if (id !== BlockId.WIZARD_GROUP_SPAWNER) continue;
+
+        const lx = idx % CHUNK_SIZE;
+        const zStride = Math.floor(idx / CHUNK_SIZE);
+        const lz = zStride % CHUNK_SIZE;
+        const y = Math.floor(idx / (CHUNK_SIZE * CHUNK_SIZE));
+        const x = chunk.cx * CHUNK_SIZE + lx;
+        const z = chunk.cz * CHUNK_SIZE + lz;
+        const dx = x + 0.5 - playerPos.x;
+        const dz = z + 0.5 - playerPos.z;
+        if (dx * dx + dz * dz > maxDistSq) continue;
+
+        const spawnerKey = `wizard-spawner:${x},${y},${z}`;
+        activeSpawnerKeys.add(spawnerKey);
+        const existing = this.wizardGroupSpawns.get(spawnerKey) ?? [];
+        const alive = existing.filter((entityId) => this.entities.has(entityId));
+        if (alive.length > 0) {
+          this.wizardGroupSpawns.set(spawnerKey, alive);
+          continue;
+        }
+
+        this.spawnWizardGroup({ key: spawnerKey, x, z, groupSize: 2 + ((hash2D(x, z, 99511) * 4) | 0) }, "wizard-spawner");
+      }
+    }
+
+    for (const [spawnerKey, ids] of this.wizardGroupSpawns.entries()) {
+      if (!spawnerKey.startsWith("wizard-spawner:")) continue;
+      if (activeSpawnerKeys.has(spawnerKey)) continue;
+      for (const id of ids) this.removeEntity(id);
+      this.wizardGroupSpawns.delete(spawnerKey);
     }
   }
 
@@ -1010,6 +1254,14 @@ export class MobSystem {
    */
   updateEntity(e, playerPos, dt, timeSec, agroEnabled, projectileSystem = null, playerVelocity = null) {
     const p = e.mesh.position;
+    if (e.leaderId) {
+      const leader = this.entities.get(e.leaderId);
+      if (leader) {
+        e.homeX = leader.mesh.position.x + Math.cos(e.leaderOffsetAngle ?? 0) * (e.leaderOffsetRadius ?? 3);
+        e.homeZ = leader.mesh.position.z + Math.sin(e.leaderOffsetAngle ?? 0) * (e.leaderOffsetRadius ?? 3);
+        e.homeY = leader.mesh.position.y;
+      }
+    }
     const factionTarget = this.findNearestFactionTarget(e, e.ranged ? 23 : 8.8);
     const targetPos = factionTarget ? factionTarget.mesh.position : playerPos;
     const targetVelocity = factionTarget ? { x: factionTarget.vx ?? 0, z: factionTarget.vz ?? 0 } : playerVelocity;
@@ -1050,7 +1302,8 @@ export class MobSystem {
       const bowOrigin = new THREE.Vector3(p.x, p.y + 1.12, p.z);
       const launchVelocity = solveBallisticVelocity(bowOrigin, leadTarget, SKELETON_ARROW_SPEED);
       if (projectileSystem && launchVelocity && e.shootCooldown <= 0 && hasLineOfSight(this.world, bowOrigin, leadTarget)) {
-        projectileSystem.fireSkeletonArrow(bowOrigin, launchVelocity, e.id);
+        if (e.wizardCaster) projectileSystem.fireWizardFireball(bowOrigin, leadTarget.clone().sub(bowOrigin), e.id);
+        else projectileSystem.fireSkeletonArrow(bowOrigin, launchVelocity, e.id);
         e.shootCooldown = 1.15 + hash2D(e.id, (timeSec * 7) | 0, 7071) * 0.35;
       }
       const flatLen = Math.max(0.001, Math.hypot(launchVelocity?.x ?? toTargetX, launchVelocity?.z ?? toTargetZ));
@@ -1137,7 +1390,7 @@ export class MobSystem {
   update(playerPos, dt, timeSec, agroEnabled = true, projectileSystem = null, playerVelocity = null) {
     this.spawnTick += dt;
     if (this.spawnTick >= 1.0) {
-      this.syncSpawns(playerPos);
+      this.syncSpawns(playerPos, timeSec);
       this.spawnTick = 0;
     }
 

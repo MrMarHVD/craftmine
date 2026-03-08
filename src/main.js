@@ -75,7 +75,7 @@ const player = new Player(camera, canvas);
 const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 }));
 
 const ui = new UI(inventory);
-ui.addItem(BlockId.SKELETON_SPAWNER, 1);
+ui.addItem(BlockId.WIZARD_GROUP_SPAWNER, 1);
 ui.addItem(BlockId.BOW, 1);
 ui.addItem(BlockId.ARROW, 10);
 const terrainMapCanvas = document.getElementById("terrain-map");

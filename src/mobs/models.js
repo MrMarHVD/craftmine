@@ -324,6 +324,31 @@ export function buildSkeleton(root) {
 }
 
 /**
+ * Builds a wizard enemy - a robed caster with a hat, beard, and glowing eyes.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated humanoid rig.
+ */
+export function buildWizard(root) {
+  const rig = createRig("humanoid");
+  addPart(root, [0.62, 0.94, 0.38], [0, 0.48, 0], 0x5a3d8c);
+  addPart(root, [0.42, 0.22, 0.28], [0, 0.08, 0], 0x37264f);
+  rig.head = addPart(root, [0.44, 0.46, 0.34], [0, 1.18, 0], 0xd8c0a1);
+  rig.legs.push(addPart(root, [0.16, 0.5, 0.16], [-0.17, 0.24, 0], 0x2c1f42));
+  rig.legs.push(addPart(root, [0.16, 0.5, 0.16], [0.17, 0.24, 0], 0x2c1f42));
+  rig.arms.push(addPart(root, [0.12, 0.46, 0.12], [-0.36, 0.64, 0], 0x6d50a8));
+  rig.arms.push(addPart(root, [0.12, 0.46, 0.12], [0.36, 0.64, 0], 0x6d50a8));
+  addPart(root, [0.18, 0.16, 0.2], [0, 0.98, 0.12], 0xc5c0d7);
+  addEyes(root, 1.18, 0.18, 0xf58b24, 0.08);
+  addPart(root, [0.54, 0.06, 0.42], [0, 1.42, 0], 0x2a1d42);
+  addPart(root, [0.22, 0.34, 0.22], [0, 1.62, 0], 0x382356);
+  addPart(root, [0.08, 0.18, 0.04], [-0.11, 1.02, 0.17], 0xd8d2c6);
+  addPart(root, [0.08, 0.18, 0.04], [0.11, 1.02, 0.17], 0xd8d2c6);
+  addPart(root, [0.12, 0.08, 0.03], [0, 1.06, 0.17], 0x6c4736);
+  return rig;
+}
+
+/**
  * Creates a Three.js model for a mob or NPC by dispatching to the appropriate
  * builder function based on `def.key` (for regular mobs) or the `questgiver`
  * flag (for quest-giver NPCs). For hostile mobs a small red dot is added as a
@@ -381,6 +406,9 @@ export function createMobModel(def, hostile, questgiver = false) {
       break;
     case "skeleton":
       rig = buildSkeleton(root);
+      break;
+    case "wizard":
+      rig = buildWizard(root);
       break;
     default:
       rig = buildSheep(root);
