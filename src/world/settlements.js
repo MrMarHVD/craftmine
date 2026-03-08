@@ -27,7 +27,7 @@ function intersects(a, b, pad = 0) {
 function buildHouse(rng, world, centerX, centerZ, radius, existing, dense = false) {
   for (let attempt = 0; attempt < 200; attempt++) {
     const angle = rng();
-    const dist = (dense ? 0.15 : 0.3) * radius + rng() * radius * 0.85;
+    const dist = (dense ? 0.08 : 0.3) * radius + rng() * radius * (dense ? 0.72 : 0.85);
     const px = Math.floor(centerX + Math.cos(angle * Math.PI * 2) * dist);
     const pz = Math.floor(centerZ + Math.sin(angle * Math.PI * 2) * dist);
     const w = 5 + ((rng() * 5) | 0);
@@ -38,7 +38,7 @@ function buildHouse(rng, world, centerX, centerZ, radius, existing, dense = fals
     if (stats.max - stats.min > (dense ? 3 : 2)) continue;
     if (stats.avg < 20) continue;
     const footprint = { x, z, w, d, y: Math.round(stats.avg) + 1 };
-    if (existing.some((s) => intersects(footprint, s, dense ? 2 : 3))) continue;
+    if (existing.some((s) => intersects(footprint, s, dense ? 1 : 3))) continue;
     return {
       kind: "house",
       x,
@@ -73,6 +73,33 @@ function buildFortress(world, centerX, centerZ) {
   return { kind: "fortress", x, z, w, d, y: Math.round(stats.avg) + 1, h: 9, towerH: 13 };
 }
 
+function buildRoads(structures, fortress = null) {
+  const houses = structures.filter((s) => s.kind === "house");
+  if (houses.length === 0) return [];
+  const roads = [];
+  const nodes = houses.map((house) => ({ x: house.x + (house.w >> 1), z: house.z + (house.d >> 1) }));
+  const network = fortress
+    ? [{ x: fortress.x + (fortress.w >> 1), z: fortress.z }]
+    : [nodes[0]];
+
+  for (const node of nodes) {
+    let best = network[0];
+    let bestD2 = Infinity;
+    for (const other of network) {
+      const dx = other.x - node.x;
+      const dz = other.z - node.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = other;
+      }
+    }
+    roads.push({ x0: node.x, z0: node.z, x1: best.x, z1: best.z });
+    network.push(node);
+  }
+  return roads;
+}
+
 export function getSettlementForRegion(world, regionX, regionZ) {
   const key = `${regionX},${regionZ}`;
   if (world.settlementCache.has(key)) return world.settlementCache.get(key);
@@ -95,11 +122,12 @@ export function getSettlementForRegion(world, regionX, regionZ) {
 
   const structures = [];
   const npcs = [];
-  const radius = type === "town" ? 240 : 82;
-  const houseCount = type === "town" ? 90 + ((rng() * 111) | 0) : 6 + ((rng() * 15) | 0);
+  const radius = type === "town" ? 180 : 82;
+  const houseCount = type === "town" ? 120 + ((rng() * 81) | 0) : 6 + ((rng() * 15) | 0);
+  let fortress = null;
 
   if (type === "town") {
-    const fortress = buildFortress(world, centerX, centerZ);
+    fortress = buildFortress(world, centerX, centerZ);
     structures.push(fortress);
   }
 
@@ -136,12 +164,17 @@ export function getSettlementForRegion(world, regionX, regionZ) {
     guardIndex++;
   }
 
-  const minX = Math.min(...structures.map((s) => s.x)) - 6;
-  const maxX = Math.max(...structures.map((s) => s.x + s.w)) + 6;
-  const minZ = Math.min(...structures.map((s) => s.z)) - 6;
-  const maxZ = Math.max(...structures.map((s) => s.z + s.d)) + 6;
+  const roads = type === "town" ? buildRoads(structures, fortress) : [];
+  const roadMinX = roads.length > 0 ? Math.min(...roads.map((r) => Math.min(r.x0, r.x1))) : Infinity;
+  const roadMaxX = roads.length > 0 ? Math.max(...roads.map((r) => Math.max(r.x0, r.x1))) : -Infinity;
+  const roadMinZ = roads.length > 0 ? Math.min(...roads.map((r) => Math.min(r.z0, r.z1))) : Infinity;
+  const roadMaxZ = roads.length > 0 ? Math.max(...roads.map((r) => Math.max(r.z0, r.z1))) : -Infinity;
+  const minX = Math.min(...structures.map((s) => s.x), roadMinX) - 6;
+  const maxX = Math.max(...structures.map((s) => s.x + s.w), roadMaxX) + 6;
+  const minZ = Math.min(...structures.map((s) => s.z), roadMinZ) - 6;
+  const maxZ = Math.max(...structures.map((s) => s.z + s.d), roadMaxZ) + 6;
 
-  const settlement = { key, type, centerX, centerZ, structures, npcs, minX, maxX, minZ, maxZ };
+  const settlement = { key, type, centerX, centerZ, structures, roads, npcs, minX, maxX, minZ, maxZ };
   world.settlementCache.set(key, settlement);
   return settlement;
 }
@@ -258,6 +291,24 @@ function stampFortress(world, blocks, cx, cz, fort) {
   }
 }
 
+function stampRoad(world, blocks, cx, cz, road) {
+  let x = road.x0;
+  let z = road.z0;
+  const dx = Math.sign(road.x1 - road.x0);
+  const dz = Math.sign(road.z1 - road.z0);
+  while (x !== road.x1 || z !== road.z1) {
+    const y = world.getSurfaceYAt(x, z) + 1;
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oz = -1; oz <= 1; oz++) {
+        for (let fy = y - 1; fy <= y; fy++) setBlock(world, blocks, cx, cz, x + ox, fy, z + oz, BlockId.GRAVEL);
+        clearBlock(world, blocks, cx, cz, x + ox, y + 1, z + oz);
+      }
+    }
+    if (x !== road.x1) x += dx;
+    else if (z !== road.z1) z += dz;
+  }
+}
+
 export function applySettlementsToChunk(world, blocks, cx, cz, worldX0, worldZ0) {
   const chunkMinX = worldX0;
   const chunkMaxX = worldX0 + CHUNK_SIZE - 1;
@@ -273,6 +324,9 @@ export function applySettlementsToChunk(world, blocks, cx, cz, worldX0, worldZ0)
       const settlement = getSettlementForRegion(world, rx, rz);
       if (!settlement) continue;
       if (settlement.maxX < chunkMinX || settlement.minX > chunkMaxX || settlement.maxZ < chunkMinZ || settlement.minZ > chunkMaxZ) continue;
+      if (settlement.type === "town") {
+        for (const road of settlement.roads) stampRoad(world, blocks, cx, cz, road);
+      }
       for (const structure of settlement.structures) {
         if (structure.x + structure.w < chunkMinX || structure.x > chunkMaxX || structure.z + structure.d < chunkMinZ || structure.z > chunkMaxZ) continue;
         if (structure.kind === "house") stampHouse(world, blocks, cx, cz, structure);
