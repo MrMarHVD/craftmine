@@ -48,6 +48,7 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
       const y = c.height;
       const above = world.getGeneratedBlockFromChunkData(blocks, cx, cz, x, y + 1, z);
       const stableSurface = hasStableSurface(world, blocks, cx, cz, x, y, z);
+      if (world.isSettlementReserved(x, z)) continue;
       const h = hash2D(x, z, world.seed + 9001);
       const cluster = valueNoise2D(x * 0.03, z * 0.03, world.seed + 9002);
       const biomeRules = FEATURE_SPAWN_RULES[c.dominantBiome] ?? null;

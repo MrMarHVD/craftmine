@@ -19,6 +19,7 @@ import { applyCastlesToChunk } from "./castles.js";
 import { applyTerrainCarvers } from "./carvers.js";
 import { populateFeatures } from "./features.js";
 import { chunkKey, index3D } from "./grid.js";
+import { applySettlementsToChunk, getSettlementNpcsForChunk, isSettlementReserved } from "./settlements.js";
 
 export { BIOME, BIOME_NAME };
 
@@ -55,6 +56,7 @@ export class World {
     this.buildQueue = [];
     this.castleCache = new Map();
     this.ravineCache = new Map();
+    this.settlementCache = new Map();
 
     this.materialOpaque = null;
     this.materialTransparent = null;
@@ -125,6 +127,14 @@ export class World {
     return this.getColumnData(x, z).height;
   }
 
+  isSettlementReserved(x, z) {
+    return isSettlementReserved(this, x, z);
+  }
+
+  getSettlementNpcsForChunk(cx, cz) {
+    return getSettlementNpcsForChunk(this, cx, cz);
+  }
+
   /**
    * Generates and caches the base block data for chunk `(cx, cz)`.
    * If the chunk has already been generated, the cached `Uint8Array` is
@@ -170,6 +180,7 @@ export class World {
     }
 
     applyTerrainCarvers(this, blocks, cx, cz, worldX0, worldZ0);
+    applySettlementsToChunk(this, blocks, cx, cz, worldX0, worldZ0);
     populateFeatures(this, blocks, cx, cz, worldX0, worldZ0);
     applyCastlesToChunk(this, blocks, cx, cz, worldX0, worldZ0);
 

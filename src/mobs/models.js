@@ -348,6 +348,27 @@ export function buildWizard(root) {
   return rig;
 }
 
+export function buildVillager(root) {
+  const rig = buildHumanoid(root, 0x6a8b53, 0xd6b08f, false);
+  addPart(root, [0.18, 0.16, 0.14], [0, 1.02, 0.16], 0xc5b092);
+  return rig;
+}
+
+export function buildGuard(root) {
+  const rig = createRig("humanoid");
+  addPart(root, [0.58, 0.88, 0.34], [0, 0.46, 0], 0x7d8794);
+  rig.head = addPart(root, [0.44, 0.46, 0.32], [0, 1.14, 0], 0xd3b08e);
+  rig.legs.push(addPart(root, [0.16, 0.56, 0.16], [-0.18, 0.22, 0], 0x414853));
+  rig.legs.push(addPart(root, [0.16, 0.56, 0.16], [0.18, 0.22, 0], 0x414853));
+  rig.arms.push(addPart(root, [0.12, 0.42, 0.12], [-0.34, 0.62, 0], 0x8f99a6));
+  rig.arms.push(addPart(root, [0.12, 0.42, 0.12], [0.34, 0.62, 0], 0x8f99a6));
+  addPart(root, [0.48, 0.1, 0.36], [0, 1.42, 0], 0x616975);
+  addPart(root, [0.62, 0.14, 0.42], [0, 0.72, 0], 0x6f7884);
+  addEyes(root, 1.16, 0.17, 0x141414, 0.08);
+  addPart(root, [0.12, 0.04, 0.02], [0, 1.04, 0.17], 0x774f38);
+  return rig;
+}
+
 /**
  * Creates a Three.js model for a mob or NPC by dispatching to the appropriate
  * builder function based on `def.key` (for regular mobs) or the `questgiver`
@@ -409,6 +430,12 @@ export function createMobModel(def, hostile, questgiver = false) {
       break;
     case "wizard":
       rig = buildWizard(root);
+      break;
+    case "villager":
+      rig = buildVillager(root);
+      break;
+    case "guard":
+      rig = buildGuard(root);
       break;
     default:
       rig = buildSheep(root);

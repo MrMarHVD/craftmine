@@ -24,6 +24,7 @@ const BLOCK_COLOR_BY_ID = {
   [BlockId.BOW]: 0xa46b39,
   [BlockId.ARROW]: 0xbbbec8,
   [BlockId.WIZARD_GROUP_SPAWNER]: 0x6b53a1,
+  [BlockId.IRON_SWORD]: 0xd7dbe2,
 };
 
 function makeMaterial(color, emissive = 0x000000) {
@@ -244,6 +245,7 @@ function getHeldItemPose(itemId, isFirstPerson = false) {
         : makePose(new THREE.Vector3(0.02, -0.19, 0.01), new THREE.Euler(0.08, 0.03, 1.54), 1.16);
     case BlockId.WOOD_SWORD:
     case BlockId.STONE_SWORD:
+    case BlockId.IRON_SWORD:
     case BlockId.WEAPON_BANDIT_BLADE:
     case BlockId.WEAPON_RAIDER_SABER:
       return isFirstPerson
@@ -331,6 +333,13 @@ export function createHeldItemModel(itemId) {
       break;
     case BlockId.STONE_SWORD:
       buildBanditBlade(root, materials);
+      break;
+    case BlockId.IRON_SWORD:
+      buildBanditBlade(root, materials);
+      root.traverse((node) => {
+        if (!node.isMesh) return;
+        node.material.color.setHex(node.position.y > -0.12 ? 0xd9dde3 : node.position.y > -0.2 ? 0xc29b44 : 0x7a5436);
+      });
       break;
     case BlockId.STONE_AXE:
       buildAxe(root, materials, 0xafb4bf, 0x7f5737);

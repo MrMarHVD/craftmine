@@ -91,6 +91,8 @@ export const BlockId = {
   ARROW: 37,
   /** Placeable test block that spawns one wizard-led oreum group. */
   WIZARD_GROUP_SPAWNER: 38,
+  /** Strong non-craftable iron sword used by guards. */
+  IRON_SWORD: 39,
 };
 
 /**
@@ -289,6 +291,12 @@ export const BLOCKS = {
     solid: true,
     transparent: false,
     textures: { all: "wizard_group_spawner" },
+  },
+  [BlockId.IRON_SWORD]: {
+    name: "Iron Sword",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
   },
 };
 

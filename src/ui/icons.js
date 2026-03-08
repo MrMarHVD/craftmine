@@ -269,6 +269,14 @@ export function createIcon(blockId) {
       ctx.fillStyle = "rgba(214,54,54,0.95)";
       ctx.fillRect(9, 18, 6, 3);
       break;
+    case BlockId.IRON_SWORD:
+      ctx.fillStyle = "rgba(218,222,228,0.95)";
+      ctx.fillRect(10, 3, 4, 14);
+      ctx.fillStyle = "rgba(154,126,54,0.95)";
+      ctx.fillRect(8, 16, 8, 3);
+      ctx.fillStyle = "rgba(112,80,46,0.95)";
+      ctx.fillRect(10, 19, 4, 3);
+      break;
     case BlockId.WIZARD_GROUP_SPAWNER:
       drawNoise(ctx, 78, 60, 108, 12);
       ctx.fillStyle = "rgba(30,22,48,0.95)";

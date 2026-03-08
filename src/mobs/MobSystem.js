@@ -269,6 +269,7 @@ export class MobSystem {
     this.wizardGroupSites = new Map();
     this.wizardGroupSpawns = new Map();
     this.nightChunkSpawns = new Map();
+    this.settlementSpawns = new Map();
     this.nextId = 1;
     this.spawnTick = 0;
 
@@ -329,6 +330,62 @@ export class MobSystem {
     if (canQuestgiver && questRoll > 1 - WORLD_SPAWN_CONFIG.questgiverChance) created.push(this.spawnQuestGiver(chunk, biome));
 
     this.chunkSpawns.set(key, created.filter(Boolean));
+  }
+
+  spawnSettlementForChunk(chunk) {
+    const key = `settlement:${chunk.key}`;
+    if (this.settlementSpawns.has(key)) return;
+    const created = [];
+    for (const npc of this.world.getSettlementNpcsForChunk(chunk.cx, chunk.cz)) {
+      const { root, rig } = createMobModel({ key: npc.key }, npc.key === "guard", false);
+      const id = this.nextId++;
+      root.position.set(npc.x, npc.y, npc.z);
+      const entity = {
+        id,
+        sourceType: "settlement",
+        sourceKey: key,
+        biome: this.world.getBiomeAt(npc.x, npc.z),
+        kind: "mob",
+        key: npc.key,
+        name: npc.name,
+        hostile: false,
+        flying: false,
+        intelligent: false,
+        speed: npc.key === "guard" ? 1.35 : 0.98,
+        mesh: root,
+        rig,
+        vx: 0,
+        vz: 0,
+        wanderTimer: 0.8 + hash2D(id, npc.x, 6101) * 2.4,
+        attackTimer: 0,
+        homeY: npc.y,
+        homeX: npc.x,
+        homeZ: npc.z,
+        patrolRadius: npc.key === "guard" ? 12 : 7,
+        animPhase: hash2D(id, npc.z, 6111) * Math.PI * 2,
+        groupId: null,
+        maxHealth: npc.key === "guard" ? 62 : 36,
+        health: npc.key === "guard" ? 62 : 36,
+        dropItem: null,
+        damageFlash: 0,
+        provoked: false,
+        shootCooldown: 0,
+        faction: npc.key === "guard" ? FACTION.HUMAN : FACTION.NEUTRAL,
+        targetEntityId: null,
+        aimPitch: 0,
+        aimYawLocal: 0,
+        meleeCooldown: 0,
+        talker: true,
+        dialogueKind: npc.key,
+        settlementType: npc.settlementType,
+        modelYawOffset: getModelYawOffset(npc.key, rig?.type, false),
+      };
+      if (npc.key === "guard") this.attachHeldItem(entity, BlockId.IRON_SWORD, 1);
+      this.entities.set(id, entity);
+      this.attachEntityMesh(entity);
+      created.push(id);
+    }
+    this.settlementSpawns.set(key, created);
   }
 
   /**
@@ -1050,6 +1107,7 @@ export class MobSystem {
   syncSpawns(playerPos, timeSec) {
     for (const chunk of this.world.loaded.values()) {
       this.spawnForChunk(chunk);
+      this.spawnSettlementForChunk(chunk);
     }
 
     this.spawnHostilesNear(playerPos);
@@ -1068,6 +1126,9 @@ export class MobSystem {
 
     for (const [chunkKey, ids] of this.chunkSpawns.entries()) {
       if (!ids.some((id) => this.entities.has(id))) this.chunkSpawns.delete(chunkKey);
+    }
+    for (const [chunkKey, ids] of this.settlementSpawns.entries()) {
+      if (!ids.some((id) => this.entities.has(id))) this.settlementSpawns.delete(chunkKey);
     }
 
     for (const [siteKey, ids] of this.hostileSiteSpawns.entries()) {
@@ -1433,6 +1494,23 @@ export class MobSystem {
     let bestD2 = maxDistance * maxDistance;
     for (const e of this.entities.values()) {
       if (!e.questgiver) continue;
+      const dx = e.mesh.position.x - playerPos.x;
+      const dy = e.mesh.position.y - playerPos.y;
+      const dz = e.mesh.position.z - playerPos.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  getNearestTalker(playerPos, maxDistance = 4) {
+    let best = null;
+    let bestD2 = maxDistance * maxDistance;
+    for (const e of this.entities.values()) {
+      if (!e.talker && !e.questgiver) continue;
       const dx = e.mesh.position.x - playerPos.x;
       const dy = e.mesh.position.y - playerPos.y;
       const dz = e.mesh.position.z - playerPos.z;

@@ -238,8 +238,8 @@ let selectedCraftRecipeId = null;
 /** Raycast result for the block the player is looking at, or `null`. */
 let currentTarget = null;
 
-/** The nearest quest-giver entity within interaction range, or `null`. */
-let nearestQuestGiver = null;
+/** The nearest talkable NPC within interaction range, or `null`. */
+let nearestTalker = null;
 
 /** World-space position where the player respawns after death. */
 let spawnPoint = new THREE.Vector3(0, 40, 0);
@@ -280,6 +280,26 @@ function refreshCraftingPanel() {
       refreshCraftingPanel();
     }
   );
+}
+
+function openAmbientDialogue(npc) {
+  const villagerLines = [
+    `Welcome to our ${npc.settlementType === "town" ? "town" : "village"}.`,
+    "The roads are quiet now, but night brings trouble.",
+    "Some say oreum scouts watch from the hills.",
+    "The guards keep this place standing.",
+    "You are welcome here, traveler.",
+  ];
+  const guardLines = [
+    "Keep your weapon ready beyond the walls.",
+    "We hold the line if oreum creatures approach.",
+    "No disorder inside the settlement.",
+    "Iron wins the close fights.",
+    "Stay alert near sunset.",
+  ];
+  const lines = npc.dialogueKind === "guard" ? guardLines : villagerLines;
+  const index = Math.abs((npc.id * 17 + worldSeed) % lines.length);
+  ui.openDialogue(npc.name, lines[index], [{ label: "Close", onSelect: () => ui.closeDialogue() }]);
 }
 
 /**
@@ -452,9 +472,10 @@ window.addEventListener("keydown", (e) => {
 
   if (e.code === "KeyF") {
     if (ui.isDialogueOpen()) return;
-    if (nearestQuestGiver) {
+    if (nearestTalker) {
       document.exitPointerLock();
-      quests.onTalkToQuestGiver(nearestQuestGiver);
+      if (nearestTalker.questgiver) quests.onTalkToQuestGiver(nearestTalker);
+      else openAmbientDialogue(nearestTalker);
       refreshOverlayVisibility();
     }
     return;
@@ -621,7 +642,7 @@ function tick(now) {
     health = MAX_HEALTH;
   }
 
-  nearestQuestGiver = mobs.getNearestQuestGiver(player.position, 4.2);
+  nearestTalker = mobs.getNearestTalker(player.position, 4.2);
 
   camera.getWorldDirection(dir);
   currentTarget = voxelRaycast(world, camera.position, dir, REACH_DISTANCE);
@@ -649,8 +670,8 @@ function tick(now) {
   let hint = quests.getActiveQuestText();
   const netHint = netStatus === "connected" ? "MP: Online" : "MP: Offline";
   hint = hint ? `${hint} | ${netHint}` : netHint;
-  if (nearestQuestGiver && !ui.isInventoryOpen()) {
-    const talkHint = `Press F to talk to ${nearestQuestGiver.name}`;
+  if (nearestTalker && !ui.isInventoryOpen()) {
+    const talkHint = `Press F to talk to ${nearestTalker.name}`;
     hint = hint ? `${hint} | ${talkHint}` : talkHint;
   }
 
