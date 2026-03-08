@@ -233,6 +233,42 @@ export function createIcon(blockId) {
       ctx.fillStyle = "rgba(110,74,44,0.9)";
       ctx.fillRect(6, 11, 12, 2);
       break;
+    case BlockId.SKELETON_SPAWNER:
+      drawNoise(ctx, 72, 76, 82, 8);
+      ctx.fillStyle = "rgba(38,40,46,0.95)";
+      ctx.fillRect(3, 3, 18, 18);
+      ctx.fillStyle = "rgba(144,148,156,0.92)";
+      for (let x = 5; x <= 18; x += 5) ctx.fillRect(x, 2, 1, 20);
+      for (let y = 5; y <= 18; y += 5) ctx.fillRect(2, y, 20, 1);
+      ctx.fillStyle = "rgba(226,226,216,0.95)";
+      ctx.fillRect(8, 8, 8, 5);
+      ctx.fillRect(7, 13, 10, 4);
+      ctx.fillStyle = "rgba(24,24,26,0.95)";
+      ctx.fillRect(10, 10, 1, 1);
+      ctx.fillRect(13, 10, 1, 1);
+      ctx.fillRect(11, 14, 2, 1);
+      break;
+    case BlockId.BOW:
+      ctx.strokeStyle = "rgba(146,98,54,0.95)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(10, 12, 7, Math.PI * 0.22, Math.PI * 1.78);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(224,224,224,0.95)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(17, 5);
+      ctx.lineTo(17, 19);
+      ctx.stroke();
+      break;
+    case BlockId.ARROW:
+      ctx.fillStyle = "rgba(120,82,48,0.95)";
+      ctx.fillRect(11, 4, 2, 15);
+      ctx.fillStyle = "rgba(204,206,214,0.95)";
+      ctx.fillRect(10, 2, 4, 4);
+      ctx.fillStyle = "rgba(214,54,54,0.95)";
+      ctx.fillRect(9, 18, 6, 3);
+      break;
     default:
       drawNoise(ctx, 90, 90, 90, 10);
       break;

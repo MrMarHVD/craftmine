@@ -294,6 +294,36 @@ export function buildYeti(root) {
 }
 
 /**
+ * Builds a skeleton enemy - a thin humanoid made of bone segments with a
+ * skull face, rib cage, and long limbs.
+ * @param {THREE.Group} root - The group to build the model into.
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: null, head: THREE.Mesh}}
+ *   Populated humanoid rig.
+ */
+export function buildSkeleton(root) {
+  const rig = createRig("humanoid");
+  const bone = 0xe5e2d6;
+  const boneDark = 0xcac6b8;
+  const shadow = 0x9f9a8a;
+
+  addPart(root, [0.18, 0.82, 0.12], [0, 0.62, 0], boneDark);
+  addPart(root, [0.46, 0.08, 0.16], [0, 0.9, 0], bone);
+  addPart(root, [0.42, 0.08, 0.14], [0, 0.72, 0], bone);
+  for (const y of [0.82, 0.74, 0.66, 0.58]) {
+    addPart(root, [0.46, 0.03, 0.03], [0, y, 0.1], boneDark);
+  }
+  rig.head = addPart(root, [0.42, 0.46, 0.32], [0, 1.22, 0], bone);
+  addPart(root, [0.22, 0.08, 0.06], [0, 1.03, 0.13], boneDark);
+  rig.legs.push(addPart(root, [0.12, 0.62, 0.12], [-0.14, 0.31, 0], boneDark));
+  rig.legs.push(addPart(root, [0.12, 0.62, 0.12], [0.14, 0.31, 0], boneDark));
+  rig.arms.push(addPart(root, [0.1, 0.66, 0.1], [-0.32, 0.62, 0], boneDark));
+  rig.arms.push(addPart(root, [0.1, 0.66, 0.1], [0.32, 0.62, 0], boneDark));
+  addEyes(root, 1.22, 0.17, 0x1a1a1a, 0.08);
+  addPart(root, [0.1, 0.04, 0.02], [0, 1.08, 0.17], shadow);
+  return rig;
+}
+
+/**
  * Creates a Three.js model for a mob or NPC by dispatching to the appropriate
  * builder function based on `def.key` (for regular mobs) or the `questgiver`
  * flag (for quest-giver NPCs). For hostile mobs a small red dot is added as a
@@ -348,6 +378,9 @@ export function createMobModel(def, hostile, questgiver = false) {
       break;
     case "yeti":
       rig = buildYeti(root);
+      break;
+    case "skeleton":
+      rig = buildSkeleton(root);
       break;
     default:
       rig = buildSheep(root);

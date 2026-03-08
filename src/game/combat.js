@@ -36,6 +36,7 @@ export const BASE_ATTACK_DAMAGE = 12;
  * @type {number}
  */
 export const ATTACK_COOLDOWN = 0.2;
+export const BOW_FIRE_COOLDOWN = 0.42;
 
 /**
  * Set of block IDs that the player is not allowed to place into the world.
@@ -62,7 +63,13 @@ export const PLACE_BLOCK_BLACKLIST = new Set([
   BlockId.STONE_AXE,
   BlockId.STONE_PICKAXE,
   BlockId.STONE_SPADE,
+  BlockId.BOW,
+  BlockId.ARROW,
 ]);
+
+export function isRangedWeapon(itemId) {
+  return itemId === BlockId.BOW || itemId === BlockId.WEAPON_SCORP_BOW;
+}
 
 /**
  * Returns the damage dealt by a melee attack using the given item as a weapon.
@@ -80,6 +87,8 @@ export function getAttackDamage(itemId) {
       return 27;
     case BlockId.WEAPON_SCORP_BOW:
       return 22;
+    case BlockId.BOW:
+      return 20;
     case BlockId.WEAPON_JAGUAR_CLAWS:
       return 20;
     case BlockId.WEAPON_WRAITH_HAMMER:

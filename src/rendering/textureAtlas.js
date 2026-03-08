@@ -46,6 +46,7 @@ const TILES = [
   "apple",
   "plank",
   "bramble",
+  "skeleton_spawner",
 ];
 
 /**
@@ -204,6 +205,20 @@ function drawTile(tile) {
     for (let i = 0; i < 6; i++) {
       ctx.fillRect(2 + ((i * 11) % 11), 4 + ((i * 7) % 8), 1, 1);
     }
+  } else if (tile === "skeleton_spawner") {
+    withNoise(ctx, [70, 74, 82], 10);
+    ctx.fillStyle = "rgba(36,38,44,0.92)";
+    ctx.fillRect(2, 2, TILE - 4, TILE - 4);
+    ctx.fillStyle = "rgba(136,142,150,0.9)";
+    for (let x = 3; x <= TILE - 4; x += 4) ctx.fillRect(x, 1, 1, TILE - 2);
+    for (let y = 3; y <= TILE - 4; y += 4) ctx.fillRect(1, y, TILE - 2, 1);
+    ctx.fillStyle = "rgba(224,224,214,0.95)";
+    ctx.fillRect(5, 5, 6, 5);
+    ctx.fillRect(4, 10, 8, 3);
+    ctx.fillStyle = "rgba(24,24,26,0.95)";
+    ctx.fillRect(6, 7, 1, 1);
+    ctx.fillRect(9, 7, 1, 1);
+    ctx.fillRect(7, 10, 2, 1);
   }
 
   return c;

@@ -34,10 +34,13 @@ import {
   MELEE_REACH,
   MELEE_CONE_ANGLE,
   ATTACK_COOLDOWN,
+  BOW_FIRE_COOLDOWN,
   PLACE_BLOCK_BLACKLIST,
   getAttackDamage,
+  isRangedWeapon,
   canPlaceAt,
 } from "./game/combat.js";
+import { ProjectileSystem } from "./game/projectiles.js";
 import {
   createCrackTextures,
   createCrackOverlay,
@@ -72,6 +75,9 @@ const player = new Player(camera, canvas);
 const inventory = Array.from({ length: 30 }, () => ({ id: BlockId.AIR, count: 0 }));
 
 const ui = new UI(inventory);
+ui.addItem(BlockId.SKELETON_SPAWNER, 1);
+ui.addItem(BlockId.BOW, 1);
+ui.addItem(BlockId.ARROW, 10);
 const terrainMapCanvas = document.getElementById("terrain-map");
 const terrainMap = new TerrainMapRenderer(terrainMapCanvas);
 const quests = new QuestSystem(ui, worldSeed + 191);
@@ -87,6 +93,13 @@ const mobs = new MobSystem(scene, world, {
 let net = null;
 const remotePlayers = new RemotePlayers(scene, () => net?.playerId ?? null);
 const localHeldItemView = new LocalHeldItemView(camera);
+const projectiles = new ProjectileSystem(scene, world, mobs, {
+  onPlayerHit: (damage) => {
+    if (!debugSettings.healthEnabled) return;
+    health = Math.max(0, health - damage);
+    incomingDamageCooldown = Math.max(incomingDamageCooldown, 0.15);
+  },
+});
 const namePromptEl = document.getElementById("name-prompt");
 const nameInputEl = document.getElementById("name-input");
 const nameConfirmEl = document.getElementById("name-confirm");
@@ -462,6 +475,20 @@ window.addEventListener("mousedown", (e) => {
 
   if (e.button === 0) {
     breakState.leftMouseDown = true;
+    const selectedItemId = ui.getSelectedItemId();
+
+    if (isRangedWeapon(selectedItemId)) {
+      if (attackCooldown > 0) return;
+      if (!ui.consumeItem(BlockId.ARROW, 1)) return;
+      camera.getWorldDirection(dir);
+      const arrowOrigin = camera.position.clone().addScaledVector(dir, 0.68);
+      arrowOrigin.y -= 0.08;
+      projectiles.firePlayerArrow(arrowOrigin, dir, getAttackDamage(selectedItemId));
+      attackCooldown = BOW_FIRE_COOLDOWN;
+      breakState.suppressBreakUntilMouseUp = true;
+      clearBreakState(breakState, crackOverlay);
+      return;
+    }
 
     if (attackCooldown <= 0) {
       camera.getWorldDirection(dir);
@@ -571,7 +598,8 @@ function tick(now) {
 
   world.rebuildOneChunk();
   world.rebuildOneChunk();
-  mobs.update(player.position, dt, syncedTimeSec, debugSettings.agroEnabled);
+  mobs.update(player.position, dt, syncedTimeSec, debugSettings.agroEnabled, projectiles, player.velocity);
+  projectiles.update(dt, player);
 
   if (debugSettings.healthEnabled) {
     incomingDamageCooldown -= dt;

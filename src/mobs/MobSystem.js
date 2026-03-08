@@ -14,6 +14,8 @@ import { CHUNK_SIZE, RENDER_DISTANCE, WORLD_HEIGHT } from "../constants.js";
 import { floorDiv, hash2D } from "../utils/random.js";
 import { BIOME, BIOME_NAME } from "../world.js";
 import { WORLD_SPAWN_CONFIG } from "../world/spawnConfig.js";
+import { updateHeldItemAnchor } from "../rendering/heldItems.js";
+import { solveBallisticVelocity, SKELETON_ARROW_SPEED } from "../game/projectiles.js";
 import { createMobModel } from "./models.js";
 import { createHealthBarSprite, createDamageHalo, updateHealthBarSprite } from "./healthBar.js";
 
@@ -111,6 +113,14 @@ const HOSTILE_BY_BIOME = {
  * @type {Set<string>}
  */
 const INTELLIGENT_HOSTILES = new Set(["bandit", "raider"]);
+const SKELETON_DEF = {
+  key: "skeleton",
+  name: "Skeleton",
+  color: 0xe5e2d6,
+  speed: 1.95,
+  health: 54,
+  drop: null,
+};
 
 function getModelYawOffset(entityKey, rigType, isQuestGiver = false) {
   if (isQuestGiver) return Math.PI * 0.5;
@@ -125,6 +135,7 @@ function getEntityHitbox(entity) {
   switch (entity.key) {
     case "bandit":
     case "raider":
+    case "skeleton":
     case "questgiver":
       return { centerY: 0.96, halfX: 0.28, halfY: 0.96, halfZ: 0.22 };
     case "yeti":
@@ -196,6 +207,23 @@ function findTopSolidY(world, x, z) {
   return 1;
 }
 
+function hasLineOfSight(world, from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dz = to.z - from.z;
+  const dist = Math.hypot(dx, dy, dz);
+  const steps = Math.max(1, Math.ceil(dist / 0.35));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const x = Math.floor(from.x + dx * t);
+    const y = Math.floor(from.y + dy * t);
+    const z = Math.floor(from.z + dz * t);
+    const id = world.getBlock(x, y, z);
+    if (id !== BlockId.AIR && id !== BlockId.WATER && id !== BlockId.LEAVES && id !== BlockId.VINE) return false;
+  }
+  return true;
+}
+
 /**
  * Manages all living entities: natural mobs, hostile enemy groups, and
  * quest-giver NPCs.
@@ -227,6 +255,7 @@ export class MobSystem {
     this.chunkSpawns = new Map();
     this.hostileSites = new Map();
     this.hostileSiteSpawns = new Map();
+    this.skeletonSpawnerSpawns = new Map();
     this.nextId = 1;
     this.spawnTick = 0;
 
@@ -246,6 +275,17 @@ export class MobSystem {
       if (n.isMesh) n.userData.entityId = entity.id;
     });
     this.scene.add(entity.mesh);
+  }
+
+  attachHeldItem(entity, itemId, scale = 0.72) {
+    if (!itemId) return;
+    const anchor = new THREE.Group();
+    anchor.position.set(0.05, -0.3, 0.02);
+    anchor.rotation.set(0.08, 0.04, -0.08);
+    (entity.rig?.arms?.[1] ?? entity.mesh).add(anchor);
+    updateHeldItemAnchor(anchor, itemId, scale);
+    entity.heldAnchor = anchor;
+    entity.heldItemId = itemId;
   }
 
   /**
@@ -385,11 +425,91 @@ export class MobSystem {
       health: site.def.health,
       dropItem: site.def.drop,
       damageFlash: 0,
+      shootCooldown: 0,
       modelYawOffset: getModelYawOffset(site.def.key, rig?.type, false),
     };
 
     createHealthBarSprite(entity);
     createDamageHalo(entity);
+
+    this.entities.set(id, entity);
+    this.attachEntityMesh(entity);
+    return id;
+  }
+
+  findSkeletonSpawnerPosition(spawnerX, spawnerY, spawnerZ) {
+    const candidates = [
+      [2, 0],
+      [-2, 0],
+      [0, 2],
+      [0, -2],
+      [3, 1],
+      [-3, -1],
+      [1, -3],
+      [-1, 3],
+    ];
+
+    for (const [ox, oz] of candidates) {
+      const x = spawnerX + ox;
+      const z = spawnerZ + oz;
+      const surface = findTopSolidY(this.world, x, z);
+      if (Math.abs(surface - spawnerY) > 5) continue;
+      if (this.world.getBlock(x, surface + 1, z) !== BlockId.AIR) continue;
+      if (this.world.getBlock(x, surface + 2, z) !== BlockId.AIR) continue;
+      return { x: x + 0.5, y: surface + 1.02, z: z + 0.5, homeY: surface + 1.02 };
+    }
+
+    if (this.world.getBlock(spawnerX, spawnerY + 1, spawnerZ) === BlockId.AIR && this.world.getBlock(spawnerX, spawnerY + 2, spawnerZ) === BlockId.AIR) {
+      return { x: spawnerX + 0.5, y: spawnerY + 1.02, z: spawnerZ + 0.5, homeY: spawnerY + 1.02 };
+    }
+    return null;
+  }
+
+  spawnSkeletonFromSpawner(spawnerX, spawnerY, spawnerZ, spawnerKey) {
+    const spawnPos = this.findSkeletonSpawnerPosition(spawnerX, spawnerY, spawnerZ);
+    if (!spawnPos) return null;
+
+    const { root, rig } = createMobModel(SKELETON_DEF, true, false);
+    const weaponId = hash2D(spawnerX * 31 + spawnerY, spawnerZ * 17 + this.nextId, this.world.seed + 9123) > 0.5 ? BlockId.BOW : BlockId.STONE_SWORD;
+    const id = this.nextId++;
+    root.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
+
+    const entity = {
+      id,
+      sourceType: "spawner",
+      sourceKey: spawnerKey,
+      biome: this.world.getBiomeAt(spawnerX, spawnerZ),
+      kind: "mob",
+      key: SKELETON_DEF.key,
+      name: SKELETON_DEF.name,
+      hostile: true,
+      flying: false,
+      intelligent: false,
+      speed: SKELETON_DEF.speed,
+      mesh: root,
+      rig,
+      vx: 0,
+      vz: 0,
+      wanderTimer: 0.5 + hash2D(id, spawnerX, 8119) * 1.8,
+      attackTimer: 0,
+      homeY: spawnPos.homeY,
+      homeX: spawnerX + 0.5,
+      homeZ: spawnerZ + 0.5,
+      patrolRadius: 6.5,
+      animPhase: hash2D(id, spawnerZ, 9231) * Math.PI * 2,
+      groupId: spawnerKey,
+      maxHealth: SKELETON_DEF.health,
+      health: SKELETON_DEF.health,
+      dropItem: SKELETON_DEF.drop,
+      damageFlash: 0,
+      ranged: weaponId === BlockId.BOW,
+      shootCooldown: 1.1 + hash2D(spawnerX, spawnerZ, 6311) * 0.8,
+      modelYawOffset: getModelYawOffset(SKELETON_DEF.key, rig?.type, false),
+    };
+
+    createHealthBarSprite(entity);
+    createDamageHalo(entity);
+    this.attachHeldItem(entity, weaponId, 1);
 
     this.entities.set(id, entity);
     this.attachEntityMesh(entity);
@@ -446,6 +566,7 @@ export class MobSystem {
       dropItem: null,
       damageFlash: 0,
       provoked: false,
+      shootCooldown: 0,
       modelYawOffset: getModelYawOffset(def.key, rig?.type, false),
     };
 
@@ -506,6 +627,7 @@ export class MobSystem {
       dropItem: null,
       damageFlash: 0,
       provoked: false,
+      shootCooldown: 0,
       modelYawOffset: getModelYawOffset("questgiver", rig?.type, true),
     };
 
@@ -604,6 +726,34 @@ export class MobSystem {
     return this.attackFromRay(origin, direction, maxDistance, damage);
   }
 
+  hitEntityOnSegment(from, to, excludeEntityId = null) {
+    const direction = new THREE.Vector3().subVectors(to, from);
+    const segmentLength = direction.length();
+    if (segmentLength < 1e-6) return null;
+    direction.divideScalar(segmentLength);
+
+    const min = new THREE.Vector3();
+    const max = new THREE.Vector3();
+    let best = null;
+    let bestDist = segmentLength;
+
+    for (const e of this.entities.values()) {
+      if (e.kind !== "mob" || e.health <= 0) continue;
+      if (excludeEntityId !== null && e.id === excludeEntityId) continue;
+      const hitbox = getEntityHitbox(e);
+      min.set(e.mesh.position.x - hitbox.halfX, e.mesh.position.y + hitbox.centerY - hitbox.halfY, e.mesh.position.z - hitbox.halfZ);
+      max.set(e.mesh.position.x + hitbox.halfX, e.mesh.position.y + hitbox.centerY + hitbox.halfY, e.mesh.position.z + hitbox.halfZ);
+      const hitDist = intersectRayAabb(from, direction, min, max);
+      if (hitDist === null || hitDist > segmentLength) continue;
+      if (hitDist < bestDist) {
+        bestDist = hitDist;
+        best = e;
+      }
+    }
+
+    return best;
+  }
+
   /**
    * Applies `damage` to a hostile entity, updates its health bar and damage
    * flash timer, and removes it if health reaches zero. On kill, calls
@@ -675,6 +825,7 @@ export class MobSystem {
     }
 
     this.spawnHostilesNear(playerPos);
+    this.syncSkeletonSpawnerSpawns(playerPos);
 
     const maxDist = (RENDER_DISTANCE + 6) * CHUNK_SIZE;
     const maxDistSq = maxDist * maxDist;
@@ -691,6 +842,49 @@ export class MobSystem {
 
     for (const [siteKey, ids] of this.hostileSiteSpawns.entries()) {
       if (!ids.some((id) => this.entities.has(id))) this.hostileSiteSpawns.delete(siteKey);
+    }
+  }
+
+  syncSkeletonSpawnerSpawns(playerPos) {
+    const activeSpawnerKeys = new Set();
+    const maxDistSq = HOSTILE_SPAWN_RANGE * HOSTILE_SPAWN_RANGE;
+
+    for (const [chunkKey, mods] of this.world.modified.entries()) {
+      const chunk = this.world.loaded.get(chunkKey);
+      if (!chunk) continue;
+
+      for (const [idx, id] of mods.entries()) {
+        if (id !== BlockId.SKELETON_SPAWNER) continue;
+
+        const lx = idx % CHUNK_SIZE;
+        const zStride = Math.floor(idx / CHUNK_SIZE);
+        const lz = zStride % CHUNK_SIZE;
+        const y = Math.floor(idx / (CHUNK_SIZE * CHUNK_SIZE));
+        const x = chunk.cx * CHUNK_SIZE + lx;
+        const z = chunk.cz * CHUNK_SIZE + lz;
+        const dx = x + 0.5 - playerPos.x;
+        const dz = z + 0.5 - playerPos.z;
+        if (dx * dx + dz * dz > maxDistSq) continue;
+
+        const spawnerKey = `${x},${y},${z}`;
+        activeSpawnerKeys.add(spawnerKey);
+
+        const existing = this.skeletonSpawnerSpawns.get(spawnerKey) ?? [];
+        const alive = existing.filter((entityId) => this.entities.has(entityId));
+        if (alive.length > 0) {
+          this.skeletonSpawnerSpawns.set(spawnerKey, alive);
+          continue;
+        }
+
+        const spawnedId = this.spawnSkeletonFromSpawner(x, y, z, spawnerKey);
+        if (spawnedId) this.skeletonSpawnerSpawns.set(spawnerKey, [spawnedId]);
+      }
+    }
+
+    for (const [spawnerKey, ids] of this.skeletonSpawnerSpawns.entries()) {
+      if (activeSpawnerKeys.has(spawnerKey)) continue;
+      for (const id of ids) this.removeEntity(id);
+      this.skeletonSpawnerSpawns.delete(spawnerKey);
     }
   }
 
@@ -752,13 +946,43 @@ export class MobSystem {
    * @param {number} timeSec - Absolute time in seconds since game start.
    * @param {boolean} agroEnabled - Whether hostile mobs should chase the player.
    */
-  updateEntity(e, playerPos, dt, timeSec, agroEnabled) {
+  updateEntity(e, playerPos, dt, timeSec, agroEnabled, projectileSystem = null, playerVelocity = null) {
     const p = e.mesh.position;
     const toPlayerX = playerPos.x - p.x;
     const toPlayerZ = playerPos.z - p.z;
     const dist = Math.hypot(toPlayerX, toPlayerZ);
 
-    if (e.hostile && agroEnabled && dist < 8.8) {
+    if (e.hostile && e.ranged && agroEnabled && dist < 23) {
+      e.shootCooldown = Math.max(0, e.shootCooldown - dt);
+      const preferredMin = 9.5;
+      const preferredMax = 15.5;
+      if (dist > preferredMax) {
+        const inv = dist > 0.001 ? 1 / dist : 0;
+        e.vx = toPlayerX * inv * e.speed * 0.95;
+        e.vz = toPlayerZ * inv * e.speed * 0.95;
+      } else if (dist < preferredMin) {
+        const inv = dist > 0.001 ? 1 / dist : 0;
+        e.vx = -toPlayerX * inv * e.speed * 0.8;
+        e.vz = -toPlayerZ * inv * e.speed * 0.8;
+      } else {
+        e.vx *= Math.max(0, 1 - dt * 5);
+        e.vz *= Math.max(0, 1 - dt * 5);
+      }
+
+      const leadTarget = new THREE.Vector3(playerPos.x, playerPos.y + 0.9, playerPos.z);
+      if (playerVelocity) {
+        const travelEstimate = dist / SKELETON_ARROW_SPEED;
+        leadTarget.x += playerVelocity.x * travelEstimate * 0.55;
+        leadTarget.z += playerVelocity.z * travelEstimate * 0.55;
+      }
+      const bowOrigin = new THREE.Vector3(p.x, p.y + 1.12, p.z);
+      const launchVelocity = solveBallisticVelocity(bowOrigin, leadTarget, SKELETON_ARROW_SPEED);
+      if (projectileSystem && launchVelocity && e.shootCooldown <= 0 && hasLineOfSight(this.world, bowOrigin, leadTarget)) {
+        projectileSystem.fireSkeletonArrow(bowOrigin, launchVelocity, e.id);
+        e.shootCooldown = 1.15 + hash2D(e.id, (timeSec * 7) | 0, 7071) * 0.35;
+      }
+      p.y = e.homeY;
+    } else if (e.hostile && agroEnabled && dist < 8.8) {
       const inv = dist > 0.001 ? 1 / dist : 0;
       e.vx = toPlayerX * inv * e.speed * 1.25;
       e.vz = toPlayerZ * inv * e.speed * 1.25;
@@ -828,7 +1052,7 @@ export class MobSystem {
    * @param {number} timeSec - Absolute time in seconds since game start.
    * @param {boolean} [agroEnabled=true] - Whether hostile mobs should aggro the player.
    */
-  update(playerPos, dt, timeSec, agroEnabled = true) {
+  update(playerPos, dt, timeSec, agroEnabled = true, projectileSystem = null, playerVelocity = null) {
     this.spawnTick += dt;
     if (this.spawnTick >= 1.0) {
       this.syncSpawns(playerPos);
@@ -836,7 +1060,7 @@ export class MobSystem {
     }
 
     for (const e of this.entities.values()) {
-      this.updateEntity(e, playerPos, dt, timeSec, agroEnabled);
+      this.updateEntity(e, playerPos, dt, timeSec, agroEnabled, projectileSystem, playerVelocity);
     }
   }
 

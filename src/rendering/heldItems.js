@@ -20,6 +20,9 @@ const BLOCK_COLOR_BY_ID = {
   [BlockId.CASTLE_BRICK]: 0x8d8f97,
   [BlockId.PLANK]: 0xb18055,
   [BlockId.BRAMBLE]: 0x5e7d42,
+  [BlockId.SKELETON_SPAWNER]: 0x60656f,
+  [BlockId.BOW]: 0xa46b39,
+  [BlockId.ARROW]: 0xbbbec8,
 };
 
 function makeMaterial(color, emissive = 0x000000) {
@@ -162,6 +165,42 @@ function buildStick(root, materials) {
   addBox(root, materials, new THREE.Vector3(0.04, 0.38, 0.04), new THREE.Vector3(0, 0, 0), 0x8b603b);
 }
 
+function buildBow(root, materials, woodColor = 0xa16a39, stringColor = 0xdedede) {
+  addCylinder(
+    root,
+    materials,
+    0.018,
+    0.018,
+    0.42,
+    new THREE.Vector3(0, 0, 0),
+    woodColor,
+    new THREE.Euler(0, 0, Math.PI * 0.5)
+  );
+  addBox(
+    root,
+    materials,
+    new THREE.Vector3(0.05, 0.27, 0.04),
+    new THREE.Vector3(-0.14, 0.11, 0),
+    woodColor,
+    new THREE.Euler(0, 0, -0.56)
+  );
+  addBox(
+    root,
+    materials,
+    new THREE.Vector3(0.05, 0.27, 0.04),
+    new THREE.Vector3(-0.14, -0.11, 0),
+    woodColor,
+    new THREE.Euler(0, 0, 0.56)
+  );
+  addBox(root, materials, new THREE.Vector3(0.01, 0.44, 0.01), new THREE.Vector3(-0.26, 0, 0), stringColor, null, 0x111111);
+}
+
+function buildArrowItem(root, materials) {
+  addBox(root, materials, new THREE.Vector3(0.03, 0.38, 0.03), new THREE.Vector3(0, 0, 0), 0x8a6039);
+  addBox(root, materials, new THREE.Vector3(0.09, 0.09, 0.03), new THREE.Vector3(0, 0.18, 0), 0xc6c9d1);
+  addBox(root, materials, new THREE.Vector3(0.08, 0.05, 0.01), new THREE.Vector3(0, -0.16, 0.015), 0xc44b4b);
+}
+
 function buildAxe(root, materials, headColor, handleColor) {
   addBox(root, materials, new THREE.Vector3(0.05, 0.4, 0.05), new THREE.Vector3(0, -0.05, 0), handleColor);
   addBox(root, materials, new THREE.Vector3(0.18, 0.12, 0.05), new THREE.Vector3(0.08, 0.13, 0), headColor, new THREE.Euler(0, 0, -0.14));
@@ -191,40 +230,45 @@ function getHeldItemPose(itemId, isFirstPerson = false) {
     case BlockId.WEAPON_YETI_AXE:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.08, -0.04, 0.02), new THREE.Euler(-0.18, 0.18, 0.86), 1)
-        : makePose(new THREE.Vector3(0.03, -0.04, 0.02), new THREE.Euler(0.2, 0.12, 1.12), 0.82);
+        : makePose(new THREE.Vector3(0.02, -0.2, 0.02), new THREE.Euler(0.12, 0.04, 1.62), 1.2);
     case BlockId.WOOD_PICKAXE:
     case BlockId.STONE_PICKAXE:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.06, -0.05, 0.01), new THREE.Euler(-0.14, 0.1, 0.94), 1)
-        : makePose(new THREE.Vector3(0.03, -0.04, 0.01), new THREE.Euler(0.16, 0.08, 1.16), 0.82);
+        : makePose(new THREE.Vector3(0.02, -0.2, 0.01), new THREE.Euler(0.1, 0.04, 1.58), 1.2);
     case BlockId.WOOD_SPADE:
     case BlockId.STONE_SPADE:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.05, -0.06, 0.02), new THREE.Euler(-0.12, 0.12, 0.52), 1)
-        : makePose(new THREE.Vector3(0.02, -0.05, 0.01), new THREE.Euler(0.14, 0.1, 0.7), 0.82);
+        : makePose(new THREE.Vector3(0.02, -0.19, 0.01), new THREE.Euler(0.08, 0.03, 1.54), 1.16);
     case BlockId.WOOD_SWORD:
     case BlockId.STONE_SWORD:
     case BlockId.WEAPON_BANDIT_BLADE:
     case BlockId.WEAPON_RAIDER_SABER:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.04, -0.08, 0.02), new THREE.Euler(-0.05, 0.1, 0.22), 1)
-        : makePose(new THREE.Vector3(0.01, -0.05, 0.01), new THREE.Euler(0.12, 0.08, 0.4), 0.82);
+        : makePose(new THREE.Vector3(0.01, -0.16, 0.24), new THREE.Euler(1.57, 0.04, 0.02), 1.24);
     case BlockId.WEAPON_WRAITH_HAMMER:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.07, -0.08, 0.01), new THREE.Euler(-0.12, 0.18, 0.68), 1)
-        : makePose(new THREE.Vector3(0.03, -0.06, 0.01), new THREE.Euler(0.14, 0.1, 0.92), 0.8);
+        : makePose(new THREE.Vector3(0.02, -0.2, 0.01), new THREE.Euler(0.08, 0.03, 1.56), 1.16);
     case BlockId.WEAPON_SCORP_BOW:
+    case BlockId.BOW:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.01, -0.06, 0.02), new THREE.Euler(0.02, 0.18, 1.36), 1)
-        : makePose(new THREE.Vector3(0.02, -0.05, 0.02), new THREE.Euler(0.12, 0.12, 1.54), 0.85);
+        : makePose(new THREE.Vector3(0.03, -0.16, 0.06), new THREE.Euler(0.18, 0.12, 1.57), 1.28);
+    case BlockId.ARROW:
+      return isFirstPerson
+        ? makePose(new THREE.Vector3(0.02, -0.05, 0.02), new THREE.Euler(0.08, 0.02, 0.28), 0.95)
+        : makePose(new THREE.Vector3(0.02, -0.17, 0.01), new THREE.Euler(0.08, 0.03, 1.55), 1.12);
     case BlockId.WEAPON_JAGUAR_CLAWS:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.02, -0.03, 0.03), new THREE.Euler(0.18, 0.2, 0.16), 1)
-        : makePose(new THREE.Vector3(0.01, -0.02, 0.03), new THREE.Euler(0.22, 0.16, 0.22), 0.82);
+        : makePose(new THREE.Vector3(0.02, -0.1, 0.04), new THREE.Euler(0.18, 0.08, 1.26), 1.02);
     default:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0, 0, 0), new THREE.Euler(0, 0, 0), 0.9)
-        : makePose(new THREE.Vector3(0, 0, 0), new THREE.Euler(0, 0, 0), 0.75);
+        : makePose(new THREE.Vector3(0.01, -0.12, 0.02), new THREE.Euler(0.1, 0.06, 1.3), 0.98);
   }
 }
 
@@ -250,6 +294,12 @@ export function createHeldItemModel(itemId) {
       break;
     case BlockId.WEAPON_SCORP_BOW:
       buildScorpionBow(root, materials);
+      break;
+    case BlockId.BOW:
+      buildBow(root, materials);
+      break;
+    case BlockId.ARROW:
+      buildArrowItem(root, materials);
       break;
     case BlockId.WEAPON_JAGUAR_CLAWS:
       buildJaguarClaws(root, materials);

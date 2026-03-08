@@ -83,6 +83,12 @@ export const BlockId = {
   STONE_SPADE: 33,
   /** Thorny bramble patch that appears occasionally in grassy biomes. */
   BRAMBLE: 34,
+  /** Placeable test block that spawns skeleton mobs nearby. */
+  SKELETON_SPAWNER: 35,
+  /** Basic player-usable bow. */
+  BOW: 36,
+  /** Basic arrow ammunition for bows. */
+  ARROW: 37,
 };
 
 /**
@@ -258,6 +264,24 @@ export const BLOCKS = {
     transparent: true,
     textures: { all: "bramble" },
   },
+  [BlockId.SKELETON_SPAWNER]: {
+    name: "Skeleton Spawner",
+    solid: true,
+    transparent: false,
+    textures: { all: "skeleton_spawner" },
+  },
+  [BlockId.BOW]: {
+    name: "Bow",
+    solid: false,
+    transparent: true,
+    textures: { all: "plank" },
+  },
+  [BlockId.ARROW]: {
+    name: "Arrow",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
 };
 
 /**
@@ -325,6 +349,7 @@ export function getBreakDuration(id) {
       return 0.8;
     case BlockId.STONE:
     case BlockId.GRAVEL:
+    case BlockId.SKELETON_SPAWNER:
       return 1.35;
     case BlockId.CASTLE_BRICK:
       return 1.75;

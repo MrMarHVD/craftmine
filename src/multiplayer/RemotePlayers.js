@@ -38,10 +38,10 @@ export class RemotePlayers {
       speed2D: 0,
     };
     p.heldAnchor = new THREE.Group();
-    p.heldAnchor.position.set(0.02, -0.3, 0.04);
-    p.heldAnchor.rotation.set(0.2, 0.18, -0.2);
+    p.heldAnchor.position.set(0.05, -0.3, 0.02);
+    p.heldAnchor.rotation.set(0.08, 0.04, -0.08);
     (rig.arms[1] ?? p.mesh).add(p.heldAnchor);
-    updateHeldItemAnchor(p.heldAnchor, p.heldItemId, 0.75);
+    updateHeldItemAnchor(p.heldAnchor, p.heldItemId, 1);
     p.nameSprite = this.createNameSprite(p.name);
     p.nameSprite.position.set(0, 2.05, 0);
     p.mesh.add(p.nameSprite);
@@ -130,7 +130,7 @@ export class RemotePlayers {
       p.targetZ = pl.z;
       p.yaw = pl.yaw ?? p.yaw;
       p.heldItemId = pl.heldItemId ?? 0;
-      updateHeldItemAnchor(p.heldAnchor, p.heldItemId, 0.75);
+      updateHeldItemAnchor(p.heldAnchor, p.heldItemId, 1);
     }
 
     for (const id of this.players.keys()) {
