@@ -9,7 +9,15 @@ const FIREBALL_LIFETIME = 4.5;
 const PLAYER_ARROW_DAMAGE = 18;
 const SKELETON_ARROW_DAMAGE = 12;
 const FIREBALL_DIRECT_DAMAGE = 26;
-const FIREBALL_EXPLOSION_RADIUS = 3.25;
+const FIREBALL_EXPLOSION_RADIUS = 6.5;
+
+function makeSmokePuff() {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0x5a5d66, transparent: true, opacity: 0.72, depthWrite: false })
+  );
+  return mesh;
+}
 
 function intersectRayAabb(origin, direction, min, max) {
   let tmin = -Infinity;
@@ -136,6 +144,8 @@ export class ProjectileSystem {
     this.tmpTo = new THREE.Vector3();
     this.tmpMin = new THREE.Vector3();
     this.tmpMax = new THREE.Vector3();
+    this.effects = new Map();
+    this.nextEffectId = 1;
   }
 
   spawnArrow({ origin, velocity, ownerType, ownerEntityId = null, hitMobs = false, hitPlayer = false, damage = PLAYER_ARROW_DAMAGE }) {
@@ -160,7 +170,7 @@ export class ProjectileSystem {
     return projectile;
   }
 
-  spawnFireball({ origin, velocity, ownerEntityId = null }) {
+  spawnFireball({ origin, velocity, ownerEntityId = null, ownerType = "mob", hitMobs = true, hitPlayer = true }) {
     const id = this.nextId++;
     const mesh = makeFireballMesh();
     mesh.position.copy(origin);
@@ -171,10 +181,10 @@ export class ProjectileSystem {
       mesh,
       position: origin.clone(),
       velocity: velocity.clone(),
-      ownerType: "mob",
+      ownerType,
       ownerEntityId,
-      hitMobs: true,
-      hitPlayer: true,
+      hitMobs,
+      hitPlayer,
       damage: FIREBALL_DIRECT_DAMAGE,
       life: FIREBALL_LIFETIME,
     };
@@ -212,6 +222,20 @@ export class ProjectileSystem {
       origin,
       velocity: direction.clone().normalize().multiplyScalar(16.5),
       ownerEntityId,
+      ownerType: "mob",
+      hitMobs: true,
+      hitPlayer: true,
+    });
+  }
+
+  firePlayerFireball(origin, direction) {
+    return this.spawnFireball({
+      origin,
+      velocity: direction.clone().normalize().multiplyScalar(18),
+      ownerEntityId: null,
+      ownerType: "player",
+      hitMobs: true,
+      hitPlayer: false,
     });
   }
 
@@ -228,7 +252,28 @@ export class ProjectileSystem {
     this.projectiles.delete(id);
   }
 
+  spawnExplosionSmoke(position) {
+    for (let i = 0; i < 28; i++) {
+      const id = this.nextEffectId++;
+      const mesh = makeSmokePuff();
+      const yaw = Math.random() * Math.PI * 2;
+      const pitch = (Math.random() * 0.7 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
+      const speed = 1.2 + Math.random() * 2.4;
+      const life = 0.9 + Math.random() * 0.55;
+      mesh.position.copy(position);
+      this.scene.add(mesh);
+      this.effects.set(id, {
+        id,
+        mesh,
+        velocity: new THREE.Vector3(Math.cos(yaw) * speed, Math.abs(Math.sin(pitch)) * (1.4 + Math.random() * 1.2), Math.sin(yaw) * speed),
+        life,
+        maxLife: life,
+      });
+    }
+  }
+
   explode(position, ownerEntityId = null) {
+    this.spawnExplosionSmoke(position);
     const radius = FIREBALL_EXPLOSION_RADIUS;
     const ceilRadius = Math.ceil(radius);
     for (let y = -ceilRadius; y <= ceilRadius; y++) {
@@ -295,7 +340,7 @@ export class ProjectileSystem {
     this.lastPlayerRef = player;
     for (const [id, projectile] of this.projectiles) {
       this.tmpFrom.copy(projectile.position);
-      projectile.velocity.y -= ARROW_GRAVITY * dt;
+      if (projectile.type !== "fireball") projectile.velocity.y -= ARROW_GRAVITY * dt;
       projectile.position.addScaledVector(projectile.velocity, dt);
       this.tmpTo.copy(projectile.position);
 
@@ -329,6 +374,22 @@ export class ProjectileSystem {
       this.alignArrow(projectile);
       projectile.life -= dt;
       if (projectile.life <= 0) this.removeProjectile(id);
+    }
+
+    for (const [id, effect] of this.effects) {
+      effect.life -= dt;
+      effect.mesh.position.addScaledVector(effect.velocity, dt);
+      effect.velocity.multiplyScalar(Math.max(0.88, 1 - dt * 0.7));
+      effect.velocity.y += 0.8 * dt;
+      const age = 1 - effect.life / effect.maxLife;
+      effect.mesh.scale.setScalar(1 + age * 2.2);
+      effect.mesh.material.opacity = Math.max(0, 0.72 * (effect.life / effect.maxLife));
+      if (effect.life <= 0) {
+        this.scene.remove(effect.mesh);
+        effect.mesh.geometry?.dispose?.();
+        effect.mesh.material?.dispose?.();
+        this.effects.delete(id);
+      }
     }
   }
 }

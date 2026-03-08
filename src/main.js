@@ -164,7 +164,7 @@ function startMultiplayerSession(playerName) {
  * Runtime configuration object that mirrors the values shown in the debug pane.
  * Mutated by `ui.setupDebugPane`'s `onChange` callback when the player adjusts
  * sliders or toggles in the debug panel.
- * @type {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, bgmVolume: number, healthEnabled: boolean, agroEnabled: boolean}}
+ * @type {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, bgmVolume: number, healthEnabled: boolean, agroEnabled: boolean, godModeEnabled: boolean}}
  */
 const debugSettings = {
   walkSpeed: 5.2,
@@ -174,6 +174,7 @@ const debugSettings = {
   bgmVolume: 0.1,
   healthEnabled: true,
   agroEnabled: true,
+  godModeEnabled: false,
 };
 
 /** Current player health in [0, MAX_HEALTH]. */
@@ -208,6 +209,7 @@ ui.setupDebugPane(debugSettings, (patch) => {
     if (!debugSettings.healthEnabled) health = getMaxHealth();
   }
   if (patch.agroEnabled !== undefined) debugSettings.agroEnabled = patch.agroEnabled;
+  if (patch.godModeEnabled !== undefined) setGodMode(patch.godModeEnabled);
 
   player.setMovementSpeeds(debugSettings.walkSpeed, debugSettings.flySpeed);
   terrainMap.setBlockSpan(debugSettings.mapWidthBlocks, debugSettings.mapHeightBlocks);
@@ -240,6 +242,22 @@ const breakState = { breakState: null, leftMouseDown: false, suppressBreakUntilM
 /** Index of the currently selected hotbar slot (0-based). */
 let selectedIndex = 0;
 let selectedCraftRecipeId = null;
+let godModeEnabled = false;
+let godBarActive = false;
+let selectedGodAbilityIndex = 0;
+
+const GOD_ABILITIES = [
+  { id: "fireball", label: "Fireball" },
+  { id: "empty_2", label: "Empty" },
+  { id: "empty_3", label: "Empty" },
+  { id: "empty_4", label: "Empty" },
+  { id: "empty_5", label: "Empty" },
+  { id: "empty_6", label: "Empty" },
+  { id: "empty_7", label: "Empty" },
+  { id: "empty_8", label: "Empty" },
+  { id: "empty_9", label: "Empty" },
+];
+refreshHotbarMode();
 
 /** Raycast result for the block the player is looking at, or `null`. */
 let currentTarget = null;
@@ -290,6 +308,18 @@ function refreshCraftingPanel() {
 
 function getMaxHealth() {
   return MAX_HEALTH * getArmorHealthMultiplier(ui.equippedArmor);
+}
+
+function refreshHotbarMode() {
+  if (godModeEnabled && godBarActive) ui.setHotbarOverride(GOD_ABILITIES, selectedGodAbilityIndex);
+  else ui.clearHotbarOverride();
+}
+
+function setGodMode(enabled) {
+  godModeEnabled = !!enabled;
+  debugSettings.godModeEnabled = godModeEnabled;
+  if (!godModeEnabled) godBarActive = false;
+  refreshHotbarMode();
 }
 
 function openAmbientDialogue(npc) {
@@ -418,10 +448,17 @@ document.addEventListener("pointerlockchange", () => {
 
 window.addEventListener("wheel", (e) => {
   if (document.pointerLockElement !== canvas || isMenuOpen()) return;
-  selectedIndex += e.deltaY > 0 ? 1 : -1;
-  if (selectedIndex < 0) selectedIndex = ui.hotbarSize - 1;
-  if (selectedIndex >= ui.hotbarSize) selectedIndex = 0;
-  ui.setHotbarSelection(selectedIndex);
+  if (godModeEnabled && godBarActive) {
+    selectedGodAbilityIndex += e.deltaY > 0 ? 1 : -1;
+    if (selectedGodAbilityIndex < 0) selectedGodAbilityIndex = ui.hotbarSize - 1;
+    if (selectedGodAbilityIndex >= ui.hotbarSize) selectedGodAbilityIndex = 0;
+    refreshHotbarMode();
+  } else {
+    selectedIndex += e.deltaY > 0 ? 1 : -1;
+    if (selectedIndex < 0) selectedIndex = ui.hotbarSize - 1;
+    if (selectedIndex >= ui.hotbarSize) selectedIndex = 0;
+    ui.setHotbarSelection(selectedIndex);
+  }
 });
 
 window.addEventListener("keydown", (e) => {
@@ -483,6 +520,12 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  if (e.code === "KeyK" && godModeEnabled) {
+    godBarActive = !godBarActive;
+    refreshHotbarMode();
+    return;
+  }
+
   if (e.code === "KeyF") {
     if (ui.isDialogueOpen()) return;
     if (currentTarget?.id === BlockId.FURNACE) {
@@ -503,8 +546,13 @@ window.addEventListener("keydown", (e) => {
   if (/Digit[1-9]/.test(e.code)) {
     const i = Number(e.code.slice(-1)) - 1;
     if (i >= 0 && i < ui.hotbarSize) {
-      selectedIndex = i;
-      ui.setHotbarSelection(selectedIndex);
+      if (godModeEnabled && godBarActive) {
+        selectedGodAbilityIndex = i;
+        refreshHotbarMode();
+      } else {
+        selectedIndex = i;
+        ui.setHotbarSelection(selectedIndex);
+      }
     }
   }
 });
@@ -515,6 +563,18 @@ window.addEventListener("mousedown", (e) => {
 
   if (e.button === 0) {
     breakState.leftMouseDown = true;
+    if (godModeEnabled && godBarActive) {
+      const ability = GOD_ABILITIES[selectedGodAbilityIndex];
+      if (ability?.id === "fireball") {
+        camera.getWorldDirection(dir);
+        const fireballOrigin = camera.position.clone().addScaledVector(dir, 0.9);
+        fireballOrigin.y -= 0.05;
+        projectiles.firePlayerFireball(fireballOrigin, dir);
+      }
+      breakState.suppressBreakUntilMouseUp = true;
+      clearBreakState(breakState, crackOverlay);
+      return;
+    }
     const selectedItemId = ui.getSelectedItemId();
 
     if (isRangedWeapon(selectedItemId)) {
@@ -552,6 +612,7 @@ window.addEventListener("mousedown", (e) => {
   }
 
   if (e.button === 2) {
+    if (godModeEnabled && godBarActive) return;
     if (!currentTarget) return;
     const placeX = currentTarget.previous.x;
     const placeY = currentTarget.previous.y;
@@ -609,7 +670,7 @@ function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
   const syncedTimeSec = (Date.now() + serverTimeOffsetMs) / 1000;
-  const heldItemId = ui.getSelectedItemId();
+  const heldItemId = godModeEnabled && godBarActive ? BlockId.AIR : ui.getSelectedItemId();
   const maxHealth = getMaxHealth();
   attackCooldown = Math.max(0, attackCooldown - dt);
   health = Math.min(health, maxHealth);
@@ -703,6 +764,10 @@ function tick(now) {
     const talkHint = `Press F to talk to ${nearestTalker.name}`;
     hint = hint ? `${hint} | ${talkHint}` : talkHint;
   }
+  if (godModeEnabled) {
+    const godHint = godBarActive ? `God: ${GOD_ABILITIES[selectedGodAbilityIndex]?.label ?? "Empty"} | K to return` : "God mode enabled | Press K for abilities";
+    hint = hint ? `${hint} | ${godHint}` : godHint;
+  }
 
   if (ui.getItemCount(BlockId.APPLE) > 0 && debugSettings.healthEnabled && health < maxHealth) {
     hint = hint ? `${hint} | Press H to eat Apple` : "Press H to eat Apple";
@@ -747,4 +812,12 @@ nameInputEl.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   nameConfirmEl.click();
 });
+
+window.setGodMode = (enabled = true) => setGodMode(enabled);
+window.gameDebug = {
+  setGodMode,
+  getGodMode: () => godModeEnabled,
+  getGodBarActive: () => godBarActive,
+};
+
 requestAnimationFrame(tick);

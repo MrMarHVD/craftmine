@@ -50,6 +50,15 @@ function setSlotVisual(node, item, icons, options = {}) {
   }
 }
 
+function setTextOnlySlotVisual(node, label, hotbarIndexLabel = null) {
+  node.icon.style.display = "none";
+  node.name.textContent = label || "Empty";
+  node.count.textContent = "";
+  if (hotbarIndexLabel !== null) {
+    node.index.textContent = String(hotbarIndexLabel);
+  }
+}
+
 /**
  * Manages all HUD DOM elements and the player's item inventory array.
  *
@@ -113,12 +122,14 @@ export class UI {
     this.debugBgmValueEl = document.getElementById("dbg-bgm-value");
     this.debugHealthEl = document.getElementById("dbg-health");
     this.debugAgroEl = document.getElementById("dbg-agro");
+    this.debugGodEl = document.getElementById("dbg-god");
 
     /** Number of slots displayed in the hotbar (also the first N slots of `inventory`). */
-    this.hotbarSize = 8;
+    this.hotbarSize = 9;
     this.inventory = initialInventory.map(slotItemOrEmpty);
     this.equippedArmor = createEmptyArmorState();
     this.hotbarIndex = 0;
+    this.hotbarOverride = null;
     this.coins = 0;
     /** Icon map generated from all block IDs via `createIconMap`. */
     this.icons = createIconMap();
@@ -324,7 +335,7 @@ export class UI {
    * callback and populates their initial values from `config`. Each input fires
    * `onChange` with a partial patch object so `main.js` can apply only the
    * changed property to `debugSettings`.
-   * @param {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, bgmVolume: number, healthEnabled: boolean, agroEnabled: boolean}} config - Initial values for the debug controls.
+   * @param {{walkSpeed: number, flySpeed: number, mapWidthBlocks: number, mapHeightBlocks: number, bgmVolume: number, healthEnabled: boolean, agroEnabled: boolean, godModeEnabled: boolean}} config - Initial values for the debug controls.
    * @param {function(Object): void} onChange - Called with a partial patch whenever any control changes.
    */
   setupDebugPane(config, onChange) {
@@ -335,6 +346,7 @@ export class UI {
     this.debugBgmEl.value = String(config.bgmVolume);
     this.debugHealthEl.checked = !!config.healthEnabled;
     this.debugAgroEl.checked = !!config.agroEnabled;
+    this.debugGodEl.checked = !!config.godModeEnabled;
     this.updateDebugValues(config.walkSpeed, config.flySpeed, config.mapWidthBlocks, config.mapHeightBlocks, config.bgmVolume);
 
     this.debugWalkEl.addEventListener("input", () => {
@@ -399,6 +411,7 @@ export class UI {
 
     this.debugHealthEl.addEventListener("change", () => onChange({ healthEnabled: this.debugHealthEl.checked }));
     this.debugAgroEl.addEventListener("change", () => onChange({ agroEnabled: this.debugAgroEl.checked }));
+    this.debugGodEl.addEventListener("change", () => onChange({ godModeEnabled: this.debugGodEl.checked }));
   }
 
   /**
@@ -804,11 +817,30 @@ export class UI {
     this.inventoryEls.forEach((el, i) => el.root.classList.toggle("active", i === index));
   }
 
+  setHotbarOverride(entries, activeIndex = 0) {
+    this.hotbarOverride = { entries: Array.isArray(entries) ? entries : [], activeIndex };
+    this.hotbarEls.forEach((el, i) => el.root.classList.toggle("active", i === activeIndex));
+    this.refreshHotbarLabels();
+  }
+
+  clearHotbarOverride() {
+    this.hotbarOverride = null;
+    this.hotbarEls.forEach((el, i) => el.root.classList.toggle("active", i === this.hotbarIndex));
+    this.refreshHotbarLabels();
+  }
+
   /**
    * Re-renders all hotbar slot labels from the current inventory state.
    * Called after any inventory mutation or hotbar selection change.
    */
   refreshHotbarLabels() {
+    if (this.hotbarOverride) {
+      for (let i = 0; i < this.hotbarEls.length; i++) {
+        const entry = this.hotbarOverride.entries[i] ?? null;
+        setTextOnlySlotVisual(this.hotbarEls[i], entry?.label ?? "Empty", i + 1);
+      }
+      return;
+    }
     for (let i = 0; i < this.hotbarEls.length; i++) {
       setSlotVisual(this.hotbarEls[i], slotItemOrEmpty(this.inventory[i]), this.icons, { hotbarIndexLabel: i + 1 });
     }
