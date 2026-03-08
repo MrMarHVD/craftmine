@@ -18,6 +18,7 @@ const BLOCK_COLOR = {
   [BlockId.VINE]: [46, 116, 45],
   [BlockId.GRAVEL]: [131, 127, 120],
   [BlockId.MOSS]: [79, 126, 64],
+  [BlockId.BRAMBLE]: [92, 116, 54],
   [BlockId.CASTLE_BRICK]: [120, 120, 130],
   [BlockId.APPLE]: [193, 36, 36],
 };

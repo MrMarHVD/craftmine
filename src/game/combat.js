@@ -53,6 +53,15 @@ export const PLACE_BLOCK_BLACKLIST = new Set([
   BlockId.WEAPON_JAGUAR_CLAWS,
   BlockId.WEAPON_WRAITH_HAMMER,
   BlockId.WEAPON_YETI_AXE,
+  BlockId.STICK,
+  BlockId.WOOD_SWORD,
+  BlockId.WOOD_AXE,
+  BlockId.WOOD_PICKAXE,
+  BlockId.WOOD_SPADE,
+  BlockId.STONE_SWORD,
+  BlockId.STONE_AXE,
+  BlockId.STONE_PICKAXE,
+  BlockId.STONE_SPADE,
 ]);
 
 /**
@@ -77,6 +86,22 @@ export function getAttackDamage(itemId) {
       return 32;
     case BlockId.WEAPON_YETI_AXE:
       return 36;
+    case BlockId.WOOD_SWORD:
+      return 18;
+    case BlockId.WOOD_AXE:
+      return 16;
+    case BlockId.WOOD_PICKAXE:
+      return 15;
+    case BlockId.WOOD_SPADE:
+      return 13;
+    case BlockId.STONE_SWORD:
+      return 22;
+    case BlockId.STONE_AXE:
+      return 19;
+    case BlockId.STONE_PICKAXE:
+      return 18;
+    case BlockId.STONE_SPADE:
+      return 15;
     default:
       return BASE_ATTACK_DAMAGE;
   }

@@ -18,6 +18,8 @@ const BLOCK_COLOR_BY_ID = {
   [BlockId.GRAVEL]: 0x918c84,
   [BlockId.MOSS]: 0x6b8a4f,
   [BlockId.CASTLE_BRICK]: 0x8d8f97,
+  [BlockId.PLANK]: 0xb18055,
+  [BlockId.BRAMBLE]: 0x5e7d42,
 };
 
 function makeMaterial(color, emissive = 0x000000) {
@@ -152,6 +154,25 @@ function buildYetiAxe(root, materials) {
   );
 }
 
+function buildStick(root, materials) {
+  addBox(root, materials, new THREE.Vector3(0.04, 0.38, 0.04), new THREE.Vector3(0, 0, 0), 0x8b603b);
+}
+
+function buildAxe(root, materials, headColor, handleColor) {
+  addBox(root, materials, new THREE.Vector3(0.05, 0.4, 0.05), new THREE.Vector3(0, -0.05, 0), handleColor);
+  addBox(root, materials, new THREE.Vector3(0.18, 0.12, 0.05), new THREE.Vector3(0.08, 0.13, 0), headColor, new THREE.Euler(0, 0, -0.14));
+}
+
+function buildPickaxe(root, materials, headColor, handleColor) {
+  addBox(root, materials, new THREE.Vector3(0.05, 0.4, 0.05), new THREE.Vector3(0, -0.05, 0), handleColor);
+  addBox(root, materials, new THREE.Vector3(0.24, 0.06, 0.05), new THREE.Vector3(0, 0.14, 0), headColor);
+}
+
+function buildSpade(root, materials, headColor, handleColor) {
+  addBox(root, materials, new THREE.Vector3(0.05, 0.38, 0.05), new THREE.Vector3(0, -0.04, 0), handleColor);
+  addBox(root, materials, new THREE.Vector3(0.11, 0.16, 0.05), new THREE.Vector3(0, 0.13, 0), headColor);
+}
+
 export function isDisplayableHeldItem(itemId) {
   return Number.isFinite(itemId) && itemId > BlockId.AIR;
 }
@@ -183,6 +204,36 @@ export function createHeldItemModel(itemId) {
       break;
     case BlockId.WEAPON_YETI_AXE:
       buildYetiAxe(root, materials);
+      break;
+    case BlockId.STICK:
+      buildStick(root, materials);
+      break;
+    case BlockId.WOOD_SWORD:
+      buildBanditBlade(root, materials);
+      root.traverse((node) => {
+        if (node.isMesh) node.material.color.setHex(node.position.y > -0.12 ? 0xba8a54 : 0x7e5635);
+      });
+      break;
+    case BlockId.WOOD_AXE:
+      buildAxe(root, materials, 0xc29562, 0x7f5737);
+      break;
+    case BlockId.WOOD_PICKAXE:
+      buildPickaxe(root, materials, 0xc29562, 0x7f5737);
+      break;
+    case BlockId.WOOD_SPADE:
+      buildSpade(root, materials, 0xc29562, 0x7f5737);
+      break;
+    case BlockId.STONE_SWORD:
+      buildBanditBlade(root, materials);
+      break;
+    case BlockId.STONE_AXE:
+      buildAxe(root, materials, 0xafb4bf, 0x7f5737);
+      break;
+    case BlockId.STONE_PICKAXE:
+      buildPickaxe(root, materials, 0xafb4bf, 0x7f5737);
+      break;
+    case BlockId.STONE_SPADE:
+      buildSpade(root, materials, 0xafb4bf, 0x7f5737);
       break;
     default:
       buildGenericBlock(root, materials, itemId);

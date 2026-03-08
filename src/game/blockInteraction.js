@@ -12,6 +12,7 @@
 
 import * as THREE from "three";
 import { BlockId, getBreakDuration, isBreakable } from "../blocks.js";
+import { getToolBreakMultiplier } from "./crafting.js";
 
 /**
  * Number of distinct crack stages rendered during block breaking. A higher
@@ -132,7 +133,7 @@ export function clearBreakState(state, crackOverlay) {
  * @param {THREE.MeshBasicMaterial} crackOverlayMat - The overlay material.
  * @param {THREE.CanvasTexture[]} crackTextures - Array of staged crack textures.
  */
-export function startOrContinueBreakTarget(target, state, crackOverlay, crackOverlayMat, crackTextures) {
+export function startOrContinueBreakTarget(target, heldItemId, state, crackOverlay, crackOverlayMat, crackTextures) {
   if (!target || !isBreakable(target.id)) {
     clearBreakState(state, crackOverlay);
     return;
@@ -142,17 +143,20 @@ export function startOrContinueBreakTarget(target, state, crackOverlay, crackOve
     state.breakState.x === target.x &&
     state.breakState.y === target.y &&
     state.breakState.z === target.z &&
-    state.breakState.id === target.id
+    state.breakState.id === target.id &&
+    state.breakState.heldItemId === heldItemId
   ) {
     return;
   }
+  const duration = getBreakDuration(target.id) / Math.max(1, getToolBreakMultiplier(heldItemId, target.id));
   state.breakState = {
     x: target.x,
     y: target.y,
     z: target.z,
     id: target.id,
+    heldItemId,
     progress: 0,
-    duration: getBreakDuration(target.id),
+    duration,
   };
   crackOverlay.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5);
   crackOverlayMat.map = crackTextures[0];
@@ -177,6 +181,7 @@ export function startOrContinueBreakTarget(target, state, crackOverlay, crackOve
  * @param {THREE.MeshBasicMaterial} crackOverlayMat - The overlay material.
  * @param {THREE.CanvasTexture[]} crackTextures - Array of staged crack textures.
  * @param {function(): boolean} isMenuOpen - Returns `true` if any menu is currently open.
+ * @param {number} heldItemId - Currently equipped item ID, used to apply tool speed bonuses.
  * @param {function(number, number, number, number): void} [onBlockBroken] - Optional callback `(x, y, z, id)` when a block is successfully broken.
  */
 export function updateBreakMining(
@@ -190,6 +195,7 @@ export function updateBreakMining(
   crackOverlayMat,
   crackTextures,
   isMenuOpen,
+  heldItemId,
   onBlockBroken = null
 ) {
   if (state.suppressBreakUntilMouseUp || !state.leftMouseDown) {
@@ -205,7 +211,7 @@ export function updateBreakMining(
     return;
   }
 
-  startOrContinueBreakTarget(currentTarget, state, crackOverlay, crackOverlayMat, crackTextures);
+  startOrContinueBreakTarget(currentTarget, heldItemId, state, crackOverlay, crackOverlayMat, crackTextures);
   if (!state.breakState) return;
 
   state.breakState.progress += dt / Math.max(0.05, state.breakState.duration);

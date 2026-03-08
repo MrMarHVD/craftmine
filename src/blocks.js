@@ -61,6 +61,28 @@ export const BlockId = {
   WEAPON_WRAITH_HAMMER: 22,
   /** Weapon dropped by Yeti enemies when defeated. */
   WEAPON_YETI_AXE: 23,
+  /** Crafted wood plank block derived from logs. */
+  PLANK: 24,
+  /** Crafted stick item used in tool recipes. */
+  STICK: 25,
+  /** Crafted wooden sword. */
+  WOOD_SWORD: 26,
+  /** Crafted wooden axe. */
+  WOOD_AXE: 27,
+  /** Crafted wooden pickaxe. */
+  WOOD_PICKAXE: 28,
+  /** Crafted wooden spade. */
+  WOOD_SPADE: 29,
+  /** Crafted stone sword. */
+  STONE_SWORD: 30,
+  /** Crafted stone axe. */
+  STONE_AXE: 31,
+  /** Crafted stone pickaxe. */
+  STONE_PICKAXE: 32,
+  /** Crafted stone spade. */
+  STONE_SPADE: 33,
+  /** Thorny bramble patch that appears occasionally in grassy biomes. */
+  BRAMBLE: 34,
 };
 
 /**
@@ -170,6 +192,72 @@ export const BLOCKS = {
     transparent: true,
     textures: { all: "stone" },
   },
+  [BlockId.PLANK]: {
+    name: "Plank",
+    solid: true,
+    transparent: false,
+    textures: { all: "plank" },
+  },
+  [BlockId.STICK]: {
+    name: "Stick",
+    solid: false,
+    transparent: true,
+    textures: { all: "plank" },
+  },
+  [BlockId.WOOD_SWORD]: {
+    name: "Wood Sword",
+    solid: false,
+    transparent: true,
+    textures: { all: "plank" },
+  },
+  [BlockId.WOOD_AXE]: {
+    name: "Wood Axe",
+    solid: false,
+    transparent: true,
+    textures: { all: "plank" },
+  },
+  [BlockId.WOOD_PICKAXE]: {
+    name: "Wood Pickaxe",
+    solid: false,
+    transparent: true,
+    textures: { all: "plank" },
+  },
+  [BlockId.WOOD_SPADE]: {
+    name: "Wood Spade",
+    solid: false,
+    transparent: true,
+    textures: { all: "plank" },
+  },
+  [BlockId.STONE_SWORD]: {
+    name: "Stone Sword",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.STONE_AXE]: {
+    name: "Stone Axe",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.STONE_PICKAXE]: {
+    name: "Stone Pickaxe",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.STONE_SPADE]: {
+    name: "Stone Spade",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.BRAMBLE]: {
+    name: "Bramble",
+    solid: false,
+    transparent: true,
+    textures: { all: "bramble" },
+  },
 };
 
 /**
@@ -218,6 +306,7 @@ export function getBreakDuration(id) {
     case BlockId.FLOWER_RED:
     case BlockId.FLOWER_YELLOW:
     case BlockId.VINE:
+    case BlockId.BRAMBLE:
       return 0.12;
     case BlockId.LEAVES:
     case BlockId.APPLE:
@@ -231,6 +320,7 @@ export function getBreakDuration(id) {
     case BlockId.MOSS:
       return 0.5;
     case BlockId.LOG:
+    case BlockId.PLANK:
     case BlockId.CACTUS:
       return 0.8;
     case BlockId.STONE:

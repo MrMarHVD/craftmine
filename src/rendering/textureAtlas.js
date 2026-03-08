@@ -44,6 +44,8 @@ const TILES = [
   "moss",
   "castle_brick",
   "apple",
+  "plank",
+  "bramble",
 ];
 
 /**
@@ -184,6 +186,24 @@ function drawTile(tile) {
     ctx.fillRect(7, 2, 2, 2);
     ctx.fillStyle = "rgba(112,84,38,0.8)";
     ctx.fillRect(8, 1, 1, 2);
+  } else if (tile === "plank") {
+    withNoise(ctx, [170, 128, 84], 14);
+    ctx.fillStyle = "rgba(105,72,40,0.38)";
+    for (let y = 0; y < TILE; y += 4) ctx.fillRect(0, y, TILE, 1);
+    for (let x = 2; x < TILE; x += 6) ctx.fillRect(x, 1, 1, TILE - 2);
+  } else if (tile === "bramble") {
+    ctx.clearRect(0, 0, TILE, TILE);
+    ctx.fillStyle = "rgba(61,106,45,0.85)";
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(2 + i * 3, 5 + (i % 2), 2, 9);
+    }
+    ctx.fillStyle = "rgba(112,68,42,0.8)";
+    ctx.fillRect(4, 10, 9, 2);
+    ctx.fillRect(5, 6, 7, 2);
+    ctx.fillStyle = "rgba(220,220,210,0.95)";
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(2 + ((i * 11) % 11), 4 + ((i * 7) % 8), 1, 1);
+    }
   }
 
   return c;

@@ -10,6 +10,7 @@
 
 import { BLOCKS, BlockId } from "../blocks.js";
 import { createIconMap } from "./icons.js";
+import { getRecipeLabel } from "../game/crafting.js";
 
 /**
  * Returns a valid item object for a slot, normalising `null`, `undefined`, or
@@ -74,6 +75,11 @@ export class UI {
     this.hotbarEl = document.getElementById("hotbar");
     this.inventoryEl = document.getElementById("inventory");
     this.inventoryGridEl = document.getElementById("inventory-grid");
+    this.craftingEl = document.getElementById("crafting");
+    this.craftingListEl = document.getElementById("crafting-list");
+    this.craftingDetailTitleEl = document.getElementById("crafting-detail-title");
+    this.craftingDetailTextEl = document.getElementById("crafting-detail-text");
+    this.craftingConfirmEl = document.getElementById("crafting-confirm");
 
     this.dialogueEl = document.getElementById("dialogue");
     this.dialogueTitleEl = document.getElementById("dialogue-title");
@@ -106,6 +112,8 @@ export class UI {
     this.hotbarEls = [];
     /** Array of DOM node references for each inventory slot. */
     this.inventoryEls = [];
+    this.craftingSelectHandler = null;
+    this.craftingConfirmHandler = null;
 
     this.buildHotbar();
     this.buildInventory();
@@ -312,12 +320,79 @@ export class UI {
   }
 
   /**
+   * Returns whether the crafting overlay is currently visible.
+   * @returns {boolean} `true` if the crafting panel has the `visible` CSS class.
+   */
+  isCraftingOpen() {
+    return this.craftingEl.classList.contains("visible");
+  }
+
+  /**
    * Shows or hides the inventory overlay and refreshes slot labels.
    * @param {boolean} visible - `true` to show, `false` to hide.
    */
   setInventoryVisible(visible) {
     this.inventoryEl.classList.toggle("visible", visible);
     this.refreshInventoryLabels();
+  }
+
+  /**
+   * Shows or hides the crafting overlay.
+   * @param {boolean} visible - `true` to show, `false` to hide.
+   */
+  setCraftingVisible(visible) {
+    this.craftingEl.classList.toggle("visible", visible);
+  }
+
+  /**
+   * Renders the current craftable recipe catalogue and the selected recipe
+   * detail panel.
+   * @param {Array<Object>} recipes - Craftable recipe descriptors.
+   * @param {string|null} selectedRecipeId - Currently selected recipe ID.
+   * @param {function(string): void} onSelect - Called when the user picks a recipe.
+   * @param {function(): void} onConfirm - Called when the user presses the craft button.
+   */
+  renderCraftingCatalogue(recipes, selectedRecipeId, onSelect, onConfirm) {
+    this.craftingSelectHandler = onSelect;
+    this.craftingConfirmHandler = onConfirm;
+    this.craftingListEl.innerHTML = "";
+
+    for (const recipe of recipes) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "crafting-recipe";
+      if (recipe.id === selectedRecipeId) btn.classList.add("active");
+
+      const name = document.createElement("div");
+      name.className = "crafting-recipe-name";
+      name.textContent = getRecipeLabel(recipe);
+
+      const cost = document.createElement("div");
+      cost.className = "crafting-recipe-cost";
+      cost.textContent = recipe.ingredients.map((ingredient) => `${BLOCKS[ingredient.id].name} x${ingredient.count}`).join(" | ");
+
+      btn.appendChild(name);
+      btn.appendChild(cost);
+      btn.addEventListener("click", () => this.craftingSelectHandler?.(recipe.id));
+      this.craftingListEl.appendChild(btn);
+    }
+
+    const selected = recipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
+    if (!selected) {
+      this.craftingDetailTitleEl.textContent = recipes.length > 0 ? "Select a recipe" : "No craftable recipes";
+      this.craftingDetailTextEl.textContent =
+        recipes.length > 0 ? "Choose an item from the catalogue to inspect its resource cost." : "Gather logs, stone, and other materials to unlock crafting options.";
+      this.craftingConfirmEl.disabled = true;
+      this.craftingConfirmEl.onclick = null;
+      return;
+    }
+
+    this.craftingDetailTitleEl.textContent = getRecipeLabel(selected);
+    this.craftingDetailTextEl.textContent = selected.ingredients
+      .map((ingredient) => `${BLOCKS[ingredient.id].name}: ${ingredient.count}`)
+      .join("\n");
+    this.craftingConfirmEl.disabled = false;
+    this.craftingConfirmEl.onclick = () => this.craftingConfirmHandler?.();
   }
 
   /**

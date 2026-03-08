@@ -45,6 +45,7 @@ import {
   startOrContinueBreakTarget,
   updateBreakMining,
 } from "./game/blockInteraction.js";
+import { craftRecipe, getCraftableRecipes } from "./game/crafting.js";
 
 /** Maximum player health points. */
 const MAX_HEALTH = 100;
@@ -216,6 +217,7 @@ const breakState = { breakState: null, leftMouseDown: false, suppressBreakUntilM
 
 /** Index of the currently selected hotbar slot (0-based). */
 let selectedIndex = 0;
+let selectedCraftRecipeId = null;
 
 /** Raycast result for the block the player is looking at, or `null`. */
 let currentTarget = null;
@@ -232,7 +234,7 @@ let spawnPoint = new THREE.Vector3(0, 40, 0);
  * @returns {boolean}
  */
 function isMenuOpen() {
-  return ui.isInventoryOpen() || ui.isDialogueOpen() || ui.isDebugOpen() || !sessionStarted;
+  return ui.isInventoryOpen() || ui.isCraftingOpen() || ui.isDialogueOpen() || ui.isDebugOpen() || !sessionStarted;
 }
 
 /**
@@ -242,6 +244,26 @@ function isMenuOpen() {
 function refreshOverlayVisibility() {
   const locked = document.pointerLockElement === canvas;
   ui.setOverlayVisible(!locked && !isMenuOpen());
+}
+
+function refreshCraftingPanel() {
+  const craftable = getCraftableRecipes(ui);
+  if (!craftable.some((recipe) => recipe.id === selectedCraftRecipeId)) {
+    selectedCraftRecipeId = craftable[0]?.id ?? null;
+  }
+  ui.renderCraftingCatalogue(
+    craftable,
+    selectedCraftRecipeId,
+    (recipeId) => {
+      selectedCraftRecipeId = recipeId;
+      refreshCraftingPanel();
+    },
+    () => {
+      if (!selectedCraftRecipeId) return;
+      if (!craftRecipe(ui, selectedCraftRecipeId)) return;
+      refreshCraftingPanel();
+    }
+  );
 }
 
 /**
@@ -377,8 +399,9 @@ window.addEventListener("keydown", (e) => {
 
     if (ui.isInventoryOpen()) {
       ui.setInventoryVisible(false);
-      if (!ui.isDebugOpen()) canvas.requestPointerLock();
+      if (!ui.isDebugOpen() && !ui.isCraftingOpen()) canvas.requestPointerLock();
     } else {
+      ui.setCraftingVisible(false);
       ui.setInventoryVisible(true);
       document.exitPointerLock();
     }
@@ -387,6 +410,22 @@ window.addEventListener("keydown", (e) => {
   }
 
   if (e.code === "KeyR") {
+    if (ui.isDialogueOpen()) return;
+    if (ui.isCraftingOpen()) {
+      ui.setCraftingVisible(false);
+      if (!ui.isInventoryOpen() && !ui.isDebugOpen()) canvas.requestPointerLock();
+    } else {
+      ui.setInventoryVisible(false);
+      ui.setCraftingVisible(true);
+      selectedCraftRecipeId = null;
+      refreshCraftingPanel();
+      document.exitPointerLock();
+    }
+    refreshOverlayVisibility();
+    return;
+  }
+
+  if (e.code === "KeyH") {
     if (!debugSettings.healthEnabled) return;
     if (health >= MAX_HEALTH) return;
     if (ui.consumeItem(BlockId.APPLE, 1)) {
@@ -439,7 +478,7 @@ window.addEventListener("mousedown", (e) => {
     }
 
     breakState.suppressBreakUntilMouseUp = false;
-    startOrContinueBreakTarget(currentTarget, breakState, crackOverlay, crackOverlayMat, crackTextures);
+    startOrContinueBreakTarget(currentTarget, ui.getSelectedItemId(), breakState, crackOverlay, crackOverlayMat, crackTextures);
   }
 
   if (e.button === 2) {
@@ -566,6 +605,7 @@ function tick(now) {
     crackOverlayMat,
     crackTextures,
     isMenuOpen,
+    heldItemId,
     (x, y, z) => net?.sendBlockSet(x, y, z, BlockId.AIR)
   );
   if (currentTarget && !isMenuOpen()) {
@@ -584,7 +624,7 @@ function tick(now) {
   }
 
   if (ui.getItemCount(BlockId.APPLE) > 0 && debugSettings.healthEnabled && health < MAX_HEALTH) {
-    hint = hint ? `${hint} | Press R to eat Apple` : "Press R to eat Apple";
+    hint = hint ? `${hint} | Press H to eat Apple` : "Press H to eat Apple";
   }
 
   ui.setHint(hint);

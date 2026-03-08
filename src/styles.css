@@ -247,6 +247,110 @@ body {
   display: block;
 }
 
+#crafting {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(760px, 94vw);
+  background: rgba(12, 18, 24, 0.92);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  display: none;
+  pointer-events: auto;
+}
+
+#crafting.visible {
+  display: block;
+}
+
+#crafting-title {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #f5f7fa;
+}
+
+#crafting-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  gap: 10px;
+}
+
+#crafting-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.crafting-recipe {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #dce6f0;
+  padding: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.crafting-recipe.active {
+  border-color: #ffde8a;
+  box-shadow: 0 0 8px rgba(255, 222, 138, 0.4);
+  color: #fff5c4;
+}
+
+.crafting-recipe-name {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.crafting-recipe-cost {
+  font-size: 11px;
+  color: #b8c8d8;
+}
+
+#crafting-detail {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#crafting-detail-title {
+  font-size: 15px;
+  color: #f4f8fd;
+}
+
+#crafting-detail-text {
+  font-size: 13px;
+  color: #c5d2de;
+  white-space: pre-line;
+  min-height: 96px;
+}
+
+#crafting-confirm {
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 221, 130, 0.92);
+  color: #1e1204;
+  padding: 9px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#crafting-confirm:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 #inventory-title {
   font-size: 15px;
   margin-bottom: 10px;
@@ -401,5 +505,14 @@ body {
 @media (max-width: 760px) {
   #inventory-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  #crafting-body {
+    grid-template-columns: 1fr;
+  }
+
+  #crafting-list {
+    grid-template-columns: 1fr;
+    max-height: 220px;
   }
 }

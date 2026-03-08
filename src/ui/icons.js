@@ -171,6 +171,68 @@ export function createIcon(blockId) {
       ctx.fillStyle = "rgba(116,82,48,0.95)";
       ctx.fillRect(13, 11, 2, 10);
       break;
+    case BlockId.PLANK:
+      drawNoise(ctx, 171, 128, 84, 12);
+      ctx.fillStyle = "rgba(102,72,42,0.35)";
+      for (let y = 0; y < ICON_SIZE; y += 6) ctx.fillRect(0, y, ICON_SIZE, 1);
+      break;
+    case BlockId.STICK:
+      ctx.fillStyle = "rgba(134,94,58,0.95)";
+      ctx.fillRect(11, 3, 2, 18);
+      break;
+    case BlockId.WOOD_SWORD:
+      ctx.fillStyle = "rgba(177,132,82,0.95)";
+      ctx.fillRect(10, 3, 4, 14);
+      ctx.fillStyle = "rgba(110,74,42,0.95)";
+      ctx.fillRect(9, 17, 6, 4);
+      break;
+    case BlockId.WOOD_AXE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 6, 2, 15);
+      ctx.fillStyle = "rgba(184,142,91,0.95)";
+      ctx.fillRect(7, 4, 8, 6);
+      break;
+    case BlockId.WOOD_PICKAXE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 6, 2, 15);
+      ctx.fillRect(6, 5, 12, 3);
+      break;
+    case BlockId.WOOD_SPADE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 8, 2, 13);
+      ctx.fillStyle = "rgba(185,143,95,0.95)";
+      ctx.fillRect(8, 3, 8, 7);
+      break;
+    case BlockId.STONE_SWORD:
+      ctx.fillStyle = "rgba(186,190,199,0.95)";
+      ctx.fillRect(10, 3, 4, 14);
+      ctx.fillStyle = "rgba(110,74,42,0.95)";
+      ctx.fillRect(9, 17, 6, 4);
+      break;
+    case BlockId.STONE_AXE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 6, 2, 15);
+      ctx.fillStyle = "rgba(168,173,182,0.95)";
+      ctx.fillRect(7, 4, 8, 6);
+      break;
+    case BlockId.STONE_PICKAXE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 6, 2, 15);
+      ctx.fillStyle = "rgba(168,173,182,0.95)";
+      ctx.fillRect(6, 5, 12, 3);
+      break;
+    case BlockId.STONE_SPADE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 8, 2, 13);
+      ctx.fillStyle = "rgba(168,173,182,0.95)";
+      ctx.fillRect(8, 3, 8, 7);
+      break;
+    case BlockId.BRAMBLE:
+      ctx.fillStyle = "rgba(80,120,56,0.95)";
+      for (let i = 0; i < 4; i++) ctx.fillRect(5 + i * 4, 6 - (i % 2), 2, 13);
+      ctx.fillStyle = "rgba(110,74,44,0.9)";
+      ctx.fillRect(6, 11, 12, 2);
+      break;
     default:
       drawNoise(ctx, 90, 90, 90, 10);
       break;

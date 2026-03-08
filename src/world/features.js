@@ -25,11 +25,11 @@ import { BIOME } from "./biomes.js";
  * chunk borders.
  *
  * Feature types per biome:
- * - **Forest**: regular trees, apple trees, red and yellow flowers.
- * - **Jungle**: tall trees with vines, moss, yellow flowers.
+ * - **Forest**: regular trees, apple trees, flowers, occasional brambles.
+ * - **Jungle**: tall trees with vines, moss, yellow flowers, occasional brambles.
  * - **Desert**: cacti of varying height, gravel patches.
  * - **Mountain**: gravel patches, stone/snow spires above Y 70.
- * - **Plains**: red and yellow flowers, sparse trees.
+ * - **Plains**: red and yellow flowers, sparse trees, occasional brambles.
  * - **Tundra**: gravel patches, sparse trees.
  *
  * @param {Object} world - The `World` instance used to read column data and write blocks.
@@ -63,6 +63,9 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
         if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.948 && h < 0.965) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
         }
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.967 && h < 0.972 && cluster > 0.48) {
+          world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.BRAMBLE);
+        }
       }
 
       if (c.dominantBiome === BIOME.JUNGLE) {
@@ -74,6 +77,9 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
         }
         if (stableSurface && above === BlockId.AIR && h > 0.942 && h < 0.957 && c.surface === BlockId.GRASS) {
           world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.FLOWER_YELLOW);
+        }
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.957 && h < 0.965 && cluster > 0.44) {
+          world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.BRAMBLE);
         }
       }
 
@@ -118,6 +124,9 @@ export function populateFeatures(world, blocks, cx, cz, worldX0, worldZ0) {
         }
         if (stableSurface && h > 0.992 && cluster > 0.45 && c.surface === BlockId.GRASS) {
           placeTree(world, blocks, cx, cz, x, y + 1, z, 4 + ((h * 3) | 0), 2, false);
+        }
+        if (stableSurface && above === BlockId.AIR && c.surface === BlockId.GRASS && h > 0.966 && h < 0.972 && cluster > 0.4) {
+          world.setGeneratedBlockIfInChunk(blocks, cx, cz, x, y + 1, z, BlockId.BRAMBLE);
         }
       }
 
