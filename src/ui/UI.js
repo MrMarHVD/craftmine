@@ -397,6 +397,19 @@ export class UI {
   }
 
   /**
+   * Returns the raw item ID in the currently selected hotbar slot.
+   * Unlike `getSelectedBlock`, this does not substitute a fallback block when
+   * the slot is empty, which makes it suitable for equipment rendering and
+   * multiplayer state sync.
+   * @returns {number} Selected item ID, or `BlockId.AIR` for an empty slot.
+   */
+  getSelectedItemId() {
+    const item = this.inventory[this.hotbarIndex];
+    if (!item || item.count <= 0) return BlockId.AIR;
+    return item.id ?? BlockId.AIR;
+  }
+
+  /**
    * Decrements the count of the selected hotbar slot by one and clears the
    * slot if it reaches zero. Used when the player places a block. Returns
    * `false` if the slot was already empty, preventing the player from placing

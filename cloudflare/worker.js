@@ -83,6 +83,7 @@ export class WorldRoom {
       yaw: 0,
       pitch: 0,
       flyMode: false,
+      heldItemId: 0,
       t: Date.now(),
     };
 
@@ -135,6 +136,7 @@ export class WorldRoom {
       player.yaw = Number.isFinite(msg.yaw) ? msg.yaw : player.yaw;
       player.pitch = Number.isFinite(msg.pitch) ? clamp(msg.pitch, -1.56, 1.56) : player.pitch;
       player.flyMode = !!msg.flyMode;
+      player.heldItemId = Number.isFinite(msg.heldItemId) ? clamp(Math.floor(msg.heldItemId), 0, 255) : player.heldItemId;
       player.t = Date.now();
       return;
     }

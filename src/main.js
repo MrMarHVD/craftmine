@@ -29,6 +29,7 @@ import { TerrainMapRenderer } from "./ui/TerrainMapRenderer.js";
 import { UI } from "./ui/UI.js";
 import { World } from "./world.js";
 import { createRenderer, createScene, createCamera, createMaterials, createTargetBox } from "./rendering/renderer.js";
+import { LocalHeldItemView } from "./rendering/heldItems.js";
 import {
   MELEE_REACH,
   MELEE_CONE_ANGLE,
@@ -52,6 +53,7 @@ const canvas = document.getElementById("app");
 const renderer = createRenderer(canvas);
 const { scene, sunLight, ambientLight, sunVisual } = createScene();
 const camera = createCamera();
+scene.add(camera);
 const atlas = createAtlas();
 
 const { matOpaque, matTransparent } = createMaterials(atlas);
@@ -80,6 +82,7 @@ const mobs = new MobSystem(scene, world, {
 });
 let net = null;
 const remotePlayers = new RemotePlayers(scene, () => net?.playerId ?? null);
+const localHeldItemView = new LocalHeldItemView(camera);
 const namePromptEl = document.getElementById("name-prompt");
 const nameInputEl = document.getElementById("name-input");
 const nameConfirmEl = document.getElementById("name-confirm");
@@ -425,7 +428,7 @@ window.addEventListener("mousedown", (e) => {
         dir,
         MELEE_REACH,
         MELEE_CONE_ANGLE,
-        getAttackDamage(ui.getSelectedBlock())
+        getAttackDamage(ui.getSelectedItemId())
       );
       attackCooldown = ATTACK_COOLDOWN;
       if (attack) {
@@ -448,7 +451,7 @@ window.addEventListener("mousedown", (e) => {
     if (world.getBlock(placeX, placeY, placeZ) !== BlockId.AIR) return;
     if (!canPlaceAt(player, placeX, placeY, placeZ)) return;
 
-    const placeId = ui.getSelectedBlock();
+    const placeId = ui.getSelectedItemId();
     if (PLACE_BLOCK_BLACKLIST.has(placeId)) return;
     if (!ui.consumeSelectedBlock()) return;
     world.setBlock(placeX, placeY, placeZ, placeId);
@@ -497,9 +500,12 @@ function tick(now) {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
   const syncedTimeSec = (Date.now() + serverTimeOffsetMs) / 1000;
+  const heldItemId = ui.getSelectedItemId();
   attackCooldown = Math.max(0, attackCooldown - dt);
   const daylight = updateDayNight(syncedTimeSec);
   clouds.update(player.position, dt, syncedTimeSec, daylight);
+  localHeldItemView.setItem(heldItemId);
+  localHeldItemView.update(syncedTimeSec);
   net?.tick(dt);
 
   if (!isMenuOpen()) {
@@ -512,6 +518,7 @@ function tick(now) {
     yaw: player.yaw,
     pitch: player.pitch,
     flyMode: player.flyMode,
+    heldItemId,
   });
 
   chunkTick += dt;
