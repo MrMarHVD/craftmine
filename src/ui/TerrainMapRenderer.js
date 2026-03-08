@@ -21,6 +21,9 @@ const BLOCK_COLOR = {
   [BlockId.BRAMBLE]: [92, 116, 54],
   [BlockId.CASTLE_BRICK]: [120, 120, 130],
   [BlockId.APPLE]: [193, 36, 36],
+  [BlockId.IRON_ORE]: [177, 126, 82],
+  [BlockId.COAL_ORE]: [42, 44, 48],
+  [BlockId.GOLD_ORE]: [222, 188, 62],
 };
 
 function colorForBlock(id) {

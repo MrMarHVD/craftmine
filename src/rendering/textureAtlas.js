@@ -48,6 +48,9 @@ const TILES = [
   "bramble",
   "skeleton_spawner",
   "wizard_group_spawner",
+  "iron_ore",
+  "coal_ore",
+  "gold_ore",
 ];
 
 /**
@@ -235,6 +238,27 @@ function drawTile(tile) {
     ctx.fillStyle = "rgba(226,220,255,0.96)";
     ctx.fillRect(5, 9, 6, 4);
     ctx.fillRect(4, 13, 8, 1);
+  } else if (tile === "iron_ore") {
+    withNoise(ctx, [126, 126, 130], 20);
+    ctx.fillStyle = "rgba(178,124,74,0.95)";
+    ctx.fillRect(3, 3, 3, 3);
+    ctx.fillRect(9, 4, 4, 3);
+    ctx.fillRect(5, 9, 3, 3);
+    ctx.fillRect(11, 10, 2, 3);
+  } else if (tile === "coal_ore") {
+    withNoise(ctx, [126, 126, 130], 20);
+    ctx.fillStyle = "rgba(38,38,42,0.95)";
+    ctx.fillRect(2, 4, 3, 3);
+    ctx.fillRect(8, 3, 4, 4);
+    ctx.fillRect(5, 10, 4, 3);
+    ctx.fillRect(11, 11, 3, 2);
+  } else if (tile === "gold_ore") {
+    withNoise(ctx, [126, 126, 130], 20);
+    ctx.fillStyle = "rgba(220,184,62,0.95)";
+    ctx.fillRect(3, 3, 3, 3);
+    ctx.fillRect(8, 4, 5, 3);
+    ctx.fillRect(4, 10, 3, 3);
+    ctx.fillRect(10, 10, 3, 3);
   }
 
   return c;

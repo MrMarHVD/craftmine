@@ -19,6 +19,7 @@ import { applyCastlesToChunk } from "./castles.js";
 import { applyTerrainCarvers } from "./carvers.js";
 import { populateFeatures } from "./features.js";
 import { chunkKey, index3D } from "./grid.js";
+import { applyOresToChunk } from "./ores.js";
 import { applySettlementsToChunk, getSettlementNpcsForChunk, isSettlementReserved } from "./settlements.js";
 
 export { BIOME, BIOME_NAME };
@@ -141,8 +142,9 @@ export class World {
    * returned immediately. Otherwise the full pipeline runs:
    * 1. Fill each column with Bedrock / stone / subsurface / surface / water.
    * 2. Carve caves and ravines.
-   * 3. Place biome features (trees, flowers, etc.).
-   * 4. Stamp castle geometry.
+   * 3. Stamp cave-adjacent ores into underground stone.
+   * 4. Place biome features (trees, flowers, etc.).
+   * 5. Stamp castle geometry.
    * @param {number} cx - Chunk X grid coordinate.
    * @param {number} cz - Chunk Z grid coordinate.
    * @returns {Uint8Array} Flat block data array for the chunk.
@@ -180,6 +182,7 @@ export class World {
     }
 
     applyTerrainCarvers(this, blocks, cx, cz, worldX0, worldZ0);
+    applyOresToChunk(this, blocks, cx, cz, worldX0, worldZ0);
     applySettlementsToChunk(this, blocks, cx, cz, worldX0, worldZ0);
     populateFeatures(this, blocks, cx, cz, worldX0, worldZ0);
     applyCastlesToChunk(this, blocks, cx, cz, worldX0, worldZ0);

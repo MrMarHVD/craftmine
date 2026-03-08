@@ -25,6 +25,9 @@ const BLOCK_COLOR_BY_ID = {
   [BlockId.ARROW]: 0xbbbec8,
   [BlockId.WIZARD_GROUP_SPAWNER]: 0x6b53a1,
   [BlockId.IRON_SWORD]: 0xd7dbe2,
+  [BlockId.IRON_ORE]: 0xb9855b,
+  [BlockId.COAL_ORE]: 0x2f3034,
+  [BlockId.GOLD_ORE]: 0xdab63d,
 };
 
 function makeMaterial(color, emissive = 0x000000) {
@@ -229,17 +232,20 @@ function getHeldItemPose(itemId, isFirstPerson = false) {
   switch (itemId) {
     case BlockId.WOOD_AXE:
     case BlockId.STONE_AXE:
+    case BlockId.IRON_AXE:
     case BlockId.WEAPON_YETI_AXE:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.08, -0.04, 0.02), new THREE.Euler(-0.18, 0.18, 0.86), 1)
         : makePose(new THREE.Vector3(0.02, -0.2, 0.02), new THREE.Euler(0.12, 0.04, 1.62), 1.2);
     case BlockId.WOOD_PICKAXE:
     case BlockId.STONE_PICKAXE:
+    case BlockId.IRON_PICKAXE:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.06, -0.05, 0.01), new THREE.Euler(-0.14, 0.1, 0.94), 1)
         : makePose(new THREE.Vector3(0.02, -0.2, 0.01), new THREE.Euler(0.1, 0.04, 1.58), 1.2);
     case BlockId.WOOD_SPADE:
     case BlockId.STONE_SPADE:
+    case BlockId.IRON_SPADE:
       return isFirstPerson
         ? makePose(new THREE.Vector3(0.05, -0.06, 0.02), new THREE.Euler(-0.12, 0.12, 0.52), 1)
         : makePose(new THREE.Vector3(0.02, -0.19, 0.01), new THREE.Euler(0.08, 0.03, 1.54), 1.16);
@@ -344,11 +350,20 @@ export function createHeldItemModel(itemId) {
     case BlockId.STONE_AXE:
       buildAxe(root, materials, 0xafb4bf, 0x7f5737);
       break;
+    case BlockId.IRON_AXE:
+      buildAxe(root, materials, 0xd8dde4, 0x7f5737);
+      break;
     case BlockId.STONE_PICKAXE:
       buildPickaxe(root, materials, 0xafb4bf, 0x7f5737);
       break;
+    case BlockId.IRON_PICKAXE:
+      buildPickaxe(root, materials, 0xd8dde4, 0x7f5737);
+      break;
     case BlockId.STONE_SPADE:
       buildSpade(root, materials, 0xafb4bf, 0x7f5737);
+      break;
+    case BlockId.IRON_SPADE:
+      buildSpade(root, materials, 0xd8dde4, 0x7f5737);
       break;
     default:
       buildGenericBlock(root, materials, itemId);

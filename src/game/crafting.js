@@ -85,6 +85,42 @@ export const CRAFTING_RECIPES = [
       { id: BlockId.STICK, count: 2 },
     ],
   },
+  {
+    id: "iron_sword",
+    outputId: BlockId.IRON_SWORD,
+    outputCount: 1,
+    ingredients: [
+      { id: BlockId.IRON_ORE, count: 2 },
+      { id: BlockId.STICK, count: 1 },
+    ],
+  },
+  {
+    id: "iron_axe",
+    outputId: BlockId.IRON_AXE,
+    outputCount: 1,
+    ingredients: [
+      { id: BlockId.IRON_ORE, count: 3 },
+      { id: BlockId.STICK, count: 2 },
+    ],
+  },
+  {
+    id: "iron_pickaxe",
+    outputId: BlockId.IRON_PICKAXE,
+    outputCount: 1,
+    ingredients: [
+      { id: BlockId.IRON_ORE, count: 3 },
+      { id: BlockId.STICK, count: 2 },
+    ],
+  },
+  {
+    id: "iron_spade",
+    outputId: BlockId.IRON_SPADE,
+    outputCount: 1,
+    ingredients: [
+      { id: BlockId.IRON_ORE, count: 1 },
+      { id: BlockId.STICK, count: 2 },
+    ],
+  },
 ];
 
 const RECIPE_BY_ID = new Map(CRAFTING_RECIPES.map((recipe) => [recipe.id, recipe]));
@@ -120,15 +156,19 @@ export function getToolKind(itemId) {
   switch (itemId) {
     case BlockId.WOOD_SWORD:
     case BlockId.STONE_SWORD:
+    case BlockId.IRON_SWORD:
       return "sword";
     case BlockId.WOOD_AXE:
     case BlockId.STONE_AXE:
+    case BlockId.IRON_AXE:
       return "axe";
     case BlockId.WOOD_PICKAXE:
     case BlockId.STONE_PICKAXE:
+    case BlockId.IRON_PICKAXE:
       return "pickaxe";
     case BlockId.WOOD_SPADE:
     case BlockId.STONE_SPADE:
+    case BlockId.IRON_SPADE:
       return "spade";
     default:
       return null;
@@ -147,6 +187,11 @@ export function getToolTier(itemId) {
     case BlockId.STONE_PICKAXE:
     case BlockId.STONE_SPADE:
       return 2;
+    case BlockId.IRON_SWORD:
+    case BlockId.IRON_AXE:
+    case BlockId.IRON_PICKAXE:
+    case BlockId.IRON_SPADE:
+      return 3;
     default:
       return 0;
   }
@@ -157,10 +202,20 @@ export function getToolBreakMultiplier(itemId, blockId) {
   const tier = getToolTier(itemId);
   if (!kind || tier === 0) return 1;
 
-  const fast = tier === 1 ? 2.35 : 3.85;
+  const fast = tier === 1 ? 2.35 : tier === 2 ? 3.85 : 5.8;
 
   if (kind === "axe" && (blockId === BlockId.LOG || blockId === BlockId.PLANK || blockId === BlockId.CACTUS)) return fast;
-  if (kind === "pickaxe" && (blockId === BlockId.STONE || blockId === BlockId.GRAVEL || blockId === BlockId.CASTLE_BRICK)) return fast;
+  if (
+    kind === "pickaxe" &&
+    (blockId === BlockId.STONE ||
+      blockId === BlockId.GRAVEL ||
+      blockId === BlockId.CASTLE_BRICK ||
+      blockId === BlockId.IRON_ORE ||
+      blockId === BlockId.COAL_ORE ||
+      blockId === BlockId.GOLD_ORE)
+  ) {
+    return fast;
+  }
   if (
     kind === "spade" &&
     (blockId === BlockId.DIRT ||
@@ -172,7 +227,24 @@ export function getToolBreakMultiplier(itemId, blockId) {
     return fast;
   }
   if (kind === "sword" && blockId === BlockId.BRAMBLE) {
-    return tier === 1 ? 1.7 : 2.25;
+    return tier === 1 ? 1.7 : tier === 2 ? 2.25 : 2.65;
   }
   return 1;
+}
+
+export function getRequiredToolKind(blockId) {
+  switch (blockId) {
+    case BlockId.IRON_ORE:
+    case BlockId.COAL_ORE:
+    case BlockId.GOLD_ORE:
+      return "pickaxe";
+    default:
+      return null;
+  }
+}
+
+export function canMineBlockWithItem(itemId, blockId) {
+  const requiredKind = getRequiredToolKind(blockId);
+  if (!requiredKind) return true;
+  return getToolKind(itemId) === requiredKind;
 }

@@ -9,6 +9,30 @@ export const WORLD_SPAWN_CONFIG = {
   wizardGroupChance: 0.018,
 };
 
+export const ORE_SPAWN_CONFIG = {
+  iron: {
+    minY: 6,
+    maxY: 72,
+    thresholdExposed: 0.79,
+    thresholdHidden: 0.965,
+    clusterScale: 0.16,
+  },
+  coal: {
+    minY: 8,
+    maxY: 88,
+    thresholdExposed: 0.855,
+    thresholdHidden: 0.978,
+    clusterScale: 0.14,
+  },
+  gold: {
+    minY: 4,
+    maxY: 34,
+    thresholdExposed: 0.93,
+    thresholdHidden: 0.992,
+    clusterScale: 0.18,
+  },
+};
+
 export const FEATURE_SPAWN_RULES = {
   [BIOME.FOREST]: {
     tree: { minHash: 0.981, minCluster: 0.42 },

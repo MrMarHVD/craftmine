@@ -12,7 +12,7 @@
 
 import * as THREE from "three";
 import { BlockId, getBreakDuration, isBreakable } from "../blocks.js";
-import { getToolBreakMultiplier } from "./crafting.js";
+import { canMineBlockWithItem, getToolBreakMultiplier } from "./crafting.js";
 
 /**
  * Number of distinct crack stages rendered during block breaking. A higher
@@ -134,7 +134,7 @@ export function clearBreakState(state, crackOverlay) {
  * @param {THREE.CanvasTexture[]} crackTextures - Array of staged crack textures.
  */
 export function startOrContinueBreakTarget(target, heldItemId, state, crackOverlay, crackOverlayMat, crackTextures) {
-  if (!target || !isBreakable(target.id)) {
+  if (!target || !isBreakable(target.id) || !canMineBlockWithItem(heldItemId, target.id)) {
     clearBreakState(state, crackOverlay);
     return;
   }
@@ -206,7 +206,7 @@ export function updateBreakMining(
     clearBreakState(state, crackOverlay);
     return;
   }
-  if (!currentTarget || !isBreakable(currentTarget.id)) {
+  if (!currentTarget || !isBreakable(currentTarget.id) || !canMineBlockWithItem(heldItemId, currentTarget.id)) {
     clearBreakState(state, crackOverlay);
     return;
   }

@@ -66,6 +66,9 @@ export const PLACE_BLOCK_BLACKLIST = new Set([
   BlockId.BOW,
   BlockId.ARROW,
   BlockId.IRON_SWORD,
+  BlockId.IRON_AXE,
+  BlockId.IRON_PICKAXE,
+  BlockId.IRON_SPADE,
 ]);
 
 export function isRangedWeapon(itemId) {
@@ -92,6 +95,12 @@ export function getAttackDamage(itemId) {
       return 20;
     case BlockId.IRON_SWORD:
       return 30;
+    case BlockId.IRON_AXE:
+      return 26;
+    case BlockId.IRON_PICKAXE:
+      return 23;
+    case BlockId.IRON_SPADE:
+      return 17;
     case BlockId.WEAPON_JAGUAR_CLAWS:
       return 20;
     case BlockId.WEAPON_WRAITH_HAMMER:

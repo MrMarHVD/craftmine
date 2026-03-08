@@ -277,6 +277,45 @@ export function createIcon(blockId) {
       ctx.fillStyle = "rgba(112,80,46,0.95)";
       ctx.fillRect(10, 19, 4, 3);
       break;
+    case BlockId.IRON_ORE:
+      drawNoise(ctx, 122, 124, 132, 16);
+      ctx.fillStyle = "rgba(184,124,76,0.95)";
+      ctx.fillRect(4, 4, 4, 4);
+      ctx.fillRect(14, 5, 4, 3);
+      ctx.fillRect(9, 13, 3, 4);
+      break;
+    case BlockId.COAL_ORE:
+      drawNoise(ctx, 122, 124, 132, 16);
+      ctx.fillStyle = "rgba(32,34,38,0.95)";
+      ctx.fillRect(4, 5, 4, 4);
+      ctx.fillRect(13, 4, 5, 5);
+      ctx.fillRect(8, 14, 4, 4);
+      break;
+    case BlockId.GOLD_ORE:
+      drawNoise(ctx, 122, 124, 132, 16);
+      ctx.fillStyle = "rgba(228,189,60,0.95)";
+      ctx.fillRect(4, 4, 4, 4);
+      ctx.fillRect(13, 5, 5, 4);
+      ctx.fillRect(8, 13, 4, 4);
+      break;
+    case BlockId.IRON_AXE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 6, 2, 15);
+      ctx.fillStyle = "rgba(212,216,224,0.95)";
+      ctx.fillRect(7, 4, 8, 6);
+      break;
+    case BlockId.IRON_PICKAXE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 6, 2, 15);
+      ctx.fillStyle = "rgba(212,216,224,0.95)";
+      ctx.fillRect(6, 5, 12, 3);
+      break;
+    case BlockId.IRON_SPADE:
+      ctx.fillStyle = "rgba(124,86,50,0.95)";
+      ctx.fillRect(11, 8, 2, 13);
+      ctx.fillStyle = "rgba(212,216,224,0.95)";
+      ctx.fillRect(8, 3, 8, 7);
+      break;
     case BlockId.WIZARD_GROUP_SPAWNER:
       drawNoise(ctx, 78, 60, 108, 12);
       ctx.fillStyle = "rgba(30,22,48,0.95)";

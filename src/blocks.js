@@ -91,8 +91,20 @@ export const BlockId = {
   ARROW: 37,
   /** Placeable test block that spawns one wizard-led oreum group. */
   WIZARD_GROUP_SPAWNER: 38,
-  /** Strong non-craftable iron sword used by guards. */
+  /** Iron sword usable by guards and craftable by the player. */
   IRON_SWORD: 39,
+  /** Iron-bearing ore block found underground, usually near cave air. */
+  IRON_ORE: 40,
+  /** Coal ore block found underground, usually near cave air. */
+  COAL_ORE: 41,
+  /** Gold-bearing ore block found underground, usually near cave air. */
+  GOLD_ORE: 42,
+  /** Crafted iron axe. */
+  IRON_AXE: 43,
+  /** Crafted iron pickaxe. */
+  IRON_PICKAXE: 44,
+  /** Crafted iron spade. */
+  IRON_SPADE: 45,
 };
 
 /**
@@ -298,6 +310,42 @@ export const BLOCKS = {
     transparent: true,
     textures: { all: "stone" },
   },
+  [BlockId.IRON_ORE]: {
+    name: "Iron Ore",
+    solid: true,
+    transparent: false,
+    textures: { all: "iron_ore" },
+  },
+  [BlockId.COAL_ORE]: {
+    name: "Coal Ore",
+    solid: true,
+    transparent: false,
+    textures: { all: "coal_ore" },
+  },
+  [BlockId.GOLD_ORE]: {
+    name: "Gold Ore",
+    solid: true,
+    transparent: false,
+    textures: { all: "gold_ore" },
+  },
+  [BlockId.IRON_AXE]: {
+    name: "Iron Axe",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.IRON_PICKAXE]: {
+    name: "Iron Pickaxe",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.IRON_SPADE]: {
+    name: "Iron Spade",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
 };
 
 /**
@@ -365,9 +413,14 @@ export function getBreakDuration(id) {
       return 0.8;
     case BlockId.STONE:
     case BlockId.GRAVEL:
+    case BlockId.COAL_ORE:
     case BlockId.SKELETON_SPAWNER:
     case BlockId.WIZARD_GROUP_SPAWNER:
       return 1.35;
+    case BlockId.IRON_ORE:
+      return 1.65;
+    case BlockId.GOLD_ORE:
+      return 1.9;
     case BlockId.CASTLE_BRICK:
       return 1.75;
     default:
