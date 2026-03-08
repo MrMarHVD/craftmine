@@ -209,4 +209,15 @@ export class QuestSystem {
     const have = this.getQuestProgress(q);
     return `Quest: ${q.giverName} wants ${q.amount} ${BLOCKS[q.target].name} (${Math.min(have, q.amount)}/${q.amount})`;
   }
+
+  /**
+   * Cancels the active quest if it belongs to the specified giver. Used when a
+   * quest-giver mob is killed before the player turns the quest in.
+   * @param {number} giverId - Entity ID of the dead quest giver.
+   */
+  cancelQuestForGiver(giverId) {
+    if (!this.activeQuest || this.activeQuest.giverId !== giverId) return;
+    this.activeQuest = null;
+    if (this.ui.isDialogueOpen()) this.ui.closeDialogue();
+  }
 }

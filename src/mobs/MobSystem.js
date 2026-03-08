@@ -112,6 +112,15 @@ const HOSTILE_BY_BIOME = {
  */
 const INTELLIGENT_HOSTILES = new Set(["bandit", "raider"]);
 
+function getModelYawOffset(entityKey, rigType, isQuestGiver = false) {
+  if (isQuestGiver) return Math.PI * 0.5;
+  if (rigType === "humanoid" || rigType === "wraith") return Math.PI * 0.5;
+  if (entityKey === "bandit" || entityKey === "raider" || entityKey === "yeti" || entityKey === "rockwraith") {
+    return Math.PI * 0.5;
+  }
+  return 0;
+}
+
 /**
  * Scans downward from the world ceiling to find the highest solid, non-water
  * block with air immediately above it. Used when placing mobs on the terrain
@@ -139,6 +148,7 @@ function findTopSolidY(world, x, z) {
  * @property {THREE.Scene} scene - The Three.js scene entities are added to.
  * @property {Object} world - The `World` instance used for surface queries.
  * @property {function} onEnemyKilled - Callback invoked with `{name, key, dropItem}` when a hostile is killed.
+ * @property {function} onQuestGiverKilled - Callback invoked with the dead quest-giver entity.
  * @property {Map<number, Object>} entities - All active entity objects keyed by unique numeric ID.
  * @property {Map<string, number[]>} chunkSpawns - Maps chunk keys to arrays of entity IDs spawned for that chunk.
  * @property {Map<string, Object|null>} hostileSites - Cached hostile site descriptors keyed by cell key.
@@ -156,6 +166,7 @@ export class MobSystem {
     this.scene = scene;
     this.world = world;
     this.onEnemyKilled = options.onEnemyKilled ?? (() => {});
+    this.onQuestGiverKilled = options.onQuestGiverKilled ?? (() => {});
 
     this.entities = new Map();
     this.chunkSpawns = new Map();
@@ -319,6 +330,7 @@ export class MobSystem {
       health: site.def.health,
       dropItem: site.def.drop,
       damageFlash: 0,
+      modelYawOffset: getModelYawOffset(site.def.key, rig?.type, false),
     };
 
     createHealthBarSprite(entity);
@@ -379,6 +391,7 @@ export class MobSystem {
       dropItem: null,
       damageFlash: 0,
       provoked: false,
+      modelYawOffset: getModelYawOffset(def.key, rig?.type, false),
     };
 
     if (hostile) {
@@ -392,10 +405,9 @@ export class MobSystem {
   }
 
   /**
-   * Creates and registers a quest-giver NPC at a deterministic position inside
-   * the given chunk. Quest givers are stationary, non-hostile, and bob gently
-   * in place. They do not have a rig because they are not animated with leg/arm
-   * swings.
+   * Creates and registers a quest-giver as a regular wandering mob. It keeps
+   * a dedicated `questgiver` flag so interaction code can still identify it,
+   * but it participates in normal movement, can be attacked, and can die.
    * @param {Object} chunk - Chunk entry from `World.loaded`.
    * @param {number} biome - Biome ID at the spawn location (shown in the NPC name).
    * @returns {number} The new entity's ID.
@@ -404,7 +416,7 @@ export class MobSystem {
     const x = chunk.cx * CHUNK_SIZE + 4 + Math.floor(hash2D(chunk.cx, chunk.cz, 1201) * 8);
     const z = chunk.cz * CHUNK_SIZE + 4 + Math.floor(hash2D(chunk.cx, chunk.cz, 1202) * 8);
     const surface = findTopSolidY(this.world, x, z);
-    const { root } = createMobModel({ color: 0x3c6fa1 }, false, true);
+    const { root, rig } = createMobModel({ color: 0x3c6fa1 }, false, true);
 
     const id = this.nextId++;
     root.position.set(x + 0.5, surface + 1.02, z + 0.5);
@@ -414,17 +426,32 @@ export class MobSystem {
       sourceType: "chunk",
       sourceKey: chunk.key,
       biome,
-      kind: "questgiver",
+      kind: "mob",
+      questgiver: true,
+      key: "questgiver",
       name: `Quest Giver (${BIOME_NAME[biome]})`,
       hostile: false,
       flying: false,
-      intelligent: true,
-      speed: 0,
+      intelligent: false,
+      speed: 1.05,
       mesh: root,
-      rig: null,
+      rig,
+      vx: 0,
+      vz: 0,
+      wanderTimer: 0.6 + hash2D(id, x, 8111) * 2.0,
+      attackTimer: 0,
       homeY: surface + 1.02,
-      bobOffset: hash2D(id, x, 21991) * 6.28,
+      homeX: x,
+      homeZ: z,
+      patrolRadius: 7,
       animPhase: 0,
+      groupId: null,
+      maxHealth: 34,
+      health: 34,
+      dropItem: null,
+      damageFlash: 0,
+      provoked: false,
+      modelYawOffset: getModelYawOffset("questgiver", rig?.type, true),
     };
 
     this.entities.set(id, entity);
@@ -583,8 +610,10 @@ export class MobSystem {
 
     if (entity.health <= 0) {
       const payload = { name: entity.name, key: entity.key, dropItem: entity.dropItem };
+      const deadQuestGiver = !!entity.questgiver;
       this.removeEntity(entity.id);
       if (entity.hostile) this.onEnemyKilled(payload);
+      if (deadQuestGiver) this.onQuestGiverKilled(entity);
       return { killed: true, ...payload };
     }
 
@@ -708,12 +737,6 @@ export class MobSystem {
    * @param {boolean} agroEnabled - Whether hostile mobs should chase the player.
    */
   updateEntity(e, playerPos, dt, timeSec, agroEnabled) {
-    if (e.kind === "questgiver") {
-      e.mesh.position.y = e.homeY + Math.sin(timeSec * 1.9 + e.bobOffset) * 0.06;
-      e.mesh.rotation.y += dt * 0.4;
-      return;
-    }
-
     const p = e.mesh.position;
     const toPlayerX = playerPos.x - p.x;
     const toPlayerZ = playerPos.z - p.z;
@@ -777,7 +800,7 @@ export class MobSystem {
 
     this.tmpDir.set(e.vx, 0, e.vz);
     const speed2D = this.tmpDir.length();
-    if (speed2D > 0.001) e.mesh.rotation.y = -Math.atan2(e.vz, e.vx);
+    if (speed2D > 0.001) e.mesh.rotation.y = -Math.atan2(e.vz, e.vx) + (e.modelYawOffset ?? 0);
     this.animateEntity(e, dt, speed2D, timeSec);
   }
 
@@ -834,7 +857,7 @@ export class MobSystem {
     let best = null;
     let bestD2 = maxDistance * maxDistance;
     for (const e of this.entities.values()) {
-      if (e.kind !== "questgiver") continue;
+      if (!e.questgiver) continue;
       const dx = e.mesh.position.x - playerPos.x;
       const dy = e.mesh.position.y - playerPos.y;
       const dz = e.mesh.position.z - playerPos.z;

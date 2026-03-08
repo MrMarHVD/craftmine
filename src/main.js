@@ -80,6 +80,9 @@ const mobs = new MobSystem(scene, world, {
     if (!payload?.dropItem) return;
     ui.addItem(payload.dropItem, 1);
   },
+  onQuestGiverKilled: (entity) => {
+    quests.cancelQuestForGiver(entity.id);
+  },
 });
 let net = null;
 const remotePlayers = new RemotePlayers(scene, () => net?.playerId ?? null);
