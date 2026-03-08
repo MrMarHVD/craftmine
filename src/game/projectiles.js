@@ -211,8 +211,11 @@ export class ProjectileSystem {
         continue;
       }
 
-      if (projectile.hitMobs) {
-        const hit = this.mobs.hitEntityOnSegment(this.tmpFrom, this.tmpTo, projectile.ownerEntityId);
+      if (projectile.hitMobs || projectile.ownerType === "mob") {
+        const hit = this.mobs.hitEntityOnSegment(this.tmpFrom, this.tmpTo, projectile.ownerEntityId, (entity) => {
+          if (projectile.ownerType !== "mob") return true;
+          return this.mobs.areEntitiesHostile(projectile.ownerEntityId, entity.id);
+        });
         if (hit) {
           this.mobs.damageEntity(hit, projectile.damage);
           this.removeProjectile(id);

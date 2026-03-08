@@ -14,6 +14,7 @@ import { CHUNK_SIZE, RENDER_DISTANCE, WORLD_HEIGHT } from "../constants.js";
 import { floorDiv, hash2D } from "../utils/random.js";
 import { BIOME, BIOME_NAME } from "../world.js";
 import { WORLD_SPAWN_CONFIG } from "../world/spawnConfig.js";
+import { FACTION, areFactionsHostile } from "./factions.js";
 import { updateHeldItemAnchor } from "../rendering/heldItems.js";
 import { solveBallisticVelocity, SKELETON_ARROW_SPEED } from "../game/projectiles.js";
 import { createMobModel } from "./models.js";
@@ -426,6 +427,10 @@ export class MobSystem {
       dropItem: site.def.drop,
       damageFlash: 0,
       shootCooldown: 0,
+      faction: FACTION.NEUTRAL,
+      targetEntityId: null,
+      aimPitch: 0,
+      aimYawLocal: 0,
       modelYawOffset: getModelYawOffset(site.def.key, rig?.type, false),
     };
 
@@ -504,6 +509,10 @@ export class MobSystem {
       damageFlash: 0,
       ranged: weaponId === BlockId.BOW,
       shootCooldown: 1.1 + hash2D(spawnerX, spawnerZ, 6311) * 0.8,
+      faction: FACTION.OREUM,
+      targetEntityId: null,
+      aimPitch: 0,
+      aimYawLocal: 0,
       modelYawOffset: getModelYawOffset(SKELETON_DEF.key, rig?.type, false),
     };
 
@@ -567,6 +576,10 @@ export class MobSystem {
       damageFlash: 0,
       provoked: false,
       shootCooldown: 0,
+      faction: FACTION.NEUTRAL,
+      targetEntityId: null,
+      aimPitch: 0,
+      aimYawLocal: 0,
       modelYawOffset: getModelYawOffset(def.key, rig?.type, false),
     };
 
@@ -628,6 +641,10 @@ export class MobSystem {
       damageFlash: 0,
       provoked: false,
       shootCooldown: 0,
+      faction: FACTION.HUMAN,
+      targetEntityId: null,
+      aimPitch: 0,
+      aimYawLocal: 0,
       modelYawOffset: getModelYawOffset("questgiver", rig?.type, true),
     };
 
@@ -726,7 +743,7 @@ export class MobSystem {
     return this.attackFromRay(origin, direction, maxDistance, damage);
   }
 
-  hitEntityOnSegment(from, to, excludeEntityId = null) {
+  hitEntityOnSegment(from, to, excludeEntityId = null, predicate = null) {
     const direction = new THREE.Vector3().subVectors(to, from);
     const segmentLength = direction.length();
     if (segmentLength < 1e-6) return null;
@@ -740,6 +757,7 @@ export class MobSystem {
     for (const e of this.entities.values()) {
       if (e.kind !== "mob" || e.health <= 0) continue;
       if (excludeEntityId !== null && e.id === excludeEntityId) continue;
+      if (predicate && !predicate(e)) continue;
       const hitbox = getEntityHitbox(e);
       min.set(e.mesh.position.x - hitbox.halfX, e.mesh.position.y + hitbox.centerY - hitbox.halfY, e.mesh.position.z - hitbox.halfZ);
       max.set(e.mesh.position.x + hitbox.halfX, e.mesh.position.y + hitbox.centerY + hitbox.halfY, e.mesh.position.z + hitbox.halfZ);
@@ -751,6 +769,32 @@ export class MobSystem {
       }
     }
 
+    return best;
+  }
+
+  areEntitiesHostile(aId, bId) {
+    const a = this.entities.get(aId);
+    const b = this.entities.get(bId);
+    if (!a || !b) return false;
+    return areFactionsHostile(a.faction, b.faction);
+  }
+
+  findNearestFactionTarget(entity, maxDistance) {
+    if (!entity?.faction || entity.faction === FACTION.NEUTRAL) return null;
+    let best = null;
+    let bestD2 = maxDistance * maxDistance;
+    for (const other of this.entities.values()) {
+      if (other.id === entity.id || other.kind !== "mob" || other.health <= 0) continue;
+      if (!areFactionsHostile(entity.faction, other.faction)) continue;
+      const dx = other.mesh.position.x - entity.mesh.position.x;
+      const dy = other.mesh.position.y - entity.mesh.position.y;
+      const dz = other.mesh.position.z - entity.mesh.position.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = other;
+      }
+    }
     return best;
   }
 
@@ -917,6 +961,24 @@ export class MobSystem {
       arm.rotation.x = Math.sin(phase) * (targetAmp * 0.9);
     }
 
+    if (e.aimingBow && rig.arms[1]) {
+      rig.arms[1].rotation.x = -Math.PI * 0.48 + (e.aimPitch ?? 0);
+      rig.arms[1].rotation.y = e.aimYawLocal ?? 0;
+      rig.arms[1].rotation.z = 0;
+      if (rig.arms[0]) {
+        rig.arms[0].rotation.x = -Math.PI * 0.36 + (e.aimPitch ?? 0) * 0.55;
+        rig.arms[0].rotation.y = (e.aimYawLocal ?? 0) * 0.35;
+        rig.arms[0].rotation.z = 0.08;
+      }
+      if (e.heldAnchor) {
+        e.heldAnchor.position.set(0.02, -0.08, 0.18);
+        e.heldAnchor.rotation.set(-0.24, 0.02, 0.02);
+      }
+    } else if (e.heldAnchor) {
+      e.heldAnchor.position.set(0.05, -0.3, 0.02);
+      e.heldAnchor.rotation.set(0.08, 0.04, -0.08);
+    }
+
     if (rig.wings.length > 0) {
       const flap = Math.sin(timeSec * 16 + e.id) * (moving ? 0.7 : 0.3);
       rig.wings[0].rotation.z = flap;
@@ -948,32 +1010,42 @@ export class MobSystem {
    */
   updateEntity(e, playerPos, dt, timeSec, agroEnabled, projectileSystem = null, playerVelocity = null) {
     const p = e.mesh.position;
-    const toPlayerX = playerPos.x - p.x;
-    const toPlayerZ = playerPos.z - p.z;
-    const dist = Math.hypot(toPlayerX, toPlayerZ);
+    const factionTarget = this.findNearestFactionTarget(e, e.ranged ? 23 : 8.8);
+    const targetPos = factionTarget ? factionTarget.mesh.position : playerPos;
+    const targetVelocity = factionTarget ? { x: factionTarget.vx ?? 0, z: factionTarget.vz ?? 0 } : playerVelocity;
+    const toTargetX = targetPos.x - p.x;
+    const toTargetZ = targetPos.z - p.z;
+    const dist = Math.hypot(toTargetX, toTargetZ);
+    e.targetEntityId = factionTarget?.id ?? null;
+    e.aimingBow = false;
+    e.aimPitch = 0;
+    e.aimYawLocal = 0;
 
-    if (e.hostile && e.ranged && agroEnabled && dist < 23) {
+    const shouldEngagePlayer = e.hostile && agroEnabled;
+    const hasFactionTarget = !!factionTarget;
+
+    if ((hasFactionTarget || shouldEngagePlayer) && e.ranged && dist < 23) {
       e.shootCooldown = Math.max(0, e.shootCooldown - dt);
       const preferredMin = 9.5;
       const preferredMax = 15.5;
       if (dist > preferredMax) {
         const inv = dist > 0.001 ? 1 / dist : 0;
-        e.vx = toPlayerX * inv * e.speed * 0.95;
-        e.vz = toPlayerZ * inv * e.speed * 0.95;
+        e.vx = toTargetX * inv * e.speed * 0.95;
+        e.vz = toTargetZ * inv * e.speed * 0.95;
       } else if (dist < preferredMin) {
         const inv = dist > 0.001 ? 1 / dist : 0;
-        e.vx = -toPlayerX * inv * e.speed * 0.8;
-        e.vz = -toPlayerZ * inv * e.speed * 0.8;
+        e.vx = -toTargetX * inv * e.speed * 0.8;
+        e.vz = -toTargetZ * inv * e.speed * 0.8;
       } else {
         e.vx *= Math.max(0, 1 - dt * 5);
         e.vz *= Math.max(0, 1 - dt * 5);
       }
 
-      const leadTarget = new THREE.Vector3(playerPos.x, playerPos.y + 0.9, playerPos.z);
-      if (playerVelocity) {
+      const leadTarget = new THREE.Vector3(targetPos.x, targetPos.y + 0.9, targetPos.z);
+      if (targetVelocity) {
         const travelEstimate = dist / SKELETON_ARROW_SPEED;
-        leadTarget.x += playerVelocity.x * travelEstimate * 0.55;
-        leadTarget.z += playerVelocity.z * travelEstimate * 0.55;
+        leadTarget.x += targetVelocity.x * travelEstimate * 0.55;
+        leadTarget.z += targetVelocity.z * travelEstimate * 0.55;
       }
       const bowOrigin = new THREE.Vector3(p.x, p.y + 1.12, p.z);
       const launchVelocity = solveBallisticVelocity(bowOrigin, leadTarget, SKELETON_ARROW_SPEED);
@@ -981,13 +1053,22 @@ export class MobSystem {
         projectileSystem.fireSkeletonArrow(bowOrigin, launchVelocity, e.id);
         e.shootCooldown = 1.15 + hash2D(e.id, (timeSec * 7) | 0, 7071) * 0.35;
       }
+      const flatLen = Math.max(0.001, Math.hypot(launchVelocity?.x ?? toTargetX, launchVelocity?.z ?? toTargetZ));
+      e.aimPitch = Math.atan2(launchVelocity?.y ?? 0, flatLen);
+      e.aimYawLocal = 0;
+      e.aimingBow = true;
       p.y = e.homeY;
-    } else if (e.hostile && agroEnabled && dist < 8.8) {
+    } else if ((hasFactionTarget || shouldEngagePlayer) && dist < 8.8) {
       const inv = dist > 0.001 ? 1 / dist : 0;
-      e.vx = toPlayerX * inv * e.speed * 1.25;
-      e.vz = toPlayerZ * inv * e.speed * 1.25;
+      e.vx = toTargetX * inv * e.speed * 1.25;
+      e.vz = toTargetZ * inv * e.speed * 1.25;
       e.attackTimer += dt * 7;
       p.y = e.homeY + Math.sin(e.attackTimer) * 0.2;
+      e.meleeCooldown = Math.max(0, (e.meleeCooldown ?? 0) - dt);
+      if (factionTarget && e.meleeCooldown <= 0 && dist < 1.85) {
+        this.damageEntity(factionTarget, e.questgiver ? 8 : 10);
+        e.meleeCooldown = 0.65;
+      }
     } else {
       e.wanderTimer -= dt;
       if (e.wanderTimer <= 0) {
@@ -998,13 +1079,13 @@ export class MobSystem {
         e.wanderTimer = 1.8 + hash2D(e.id, (timeSec * 4) | 0, 7002) * 3.2;
       }
 
-      if (!e.hostile && e.provoked && dist < 7.2) {
+      if (!e.hostile && !hasFactionTarget && e.provoked && dist < 7.2) {
         const inv = dist > 0.001 ? 1 / dist : 0;
-        e.vx = -toPlayerX * inv * e.speed * 1.15;
-        e.vz = -toPlayerZ * inv * e.speed * 1.15;
+        e.vx = -toTargetX * inv * e.speed * 1.15;
+        e.vz = -toTargetZ * inv * e.speed * 1.15;
       }
 
-      if (e.hostile) {
+      if (e.hostile || hasFactionTarget) {
         const hx = e.homeX - p.x;
         const hz = e.homeZ - p.z;
         const hDist = Math.hypot(hx, hz);
@@ -1040,7 +1121,8 @@ export class MobSystem {
 
     this.tmpDir.set(e.vx, 0, e.vz);
     const speed2D = this.tmpDir.length();
-    if (speed2D > 0.001) e.mesh.rotation.y = -Math.atan2(e.vz, e.vx) + (e.modelYawOffset ?? 0);
+    if (e.aimingBow) e.mesh.rotation.y = -Math.atan2(toTargetZ, toTargetX) + (e.modelYawOffset ?? 0);
+    else if (speed2D > 0.001) e.mesh.rotation.y = -Math.atan2(e.vz, e.vx) + (e.modelYawOffset ?? 0);
     this.animateEntity(e, dt, speed2D, timeSec);
   }
 
