@@ -121,6 +121,61 @@ function getModelYawOffset(entityKey, rigType, isQuestGiver = false) {
   return 0;
 }
 
+function getEntityHitbox(entity) {
+  switch (entity.key) {
+    case "bandit":
+    case "raider":
+    case "questgiver":
+      return { centerY: 0.96, halfX: 0.28, halfY: 0.96, halfZ: 0.22 };
+    case "yeti":
+      return { centerY: 1.02, halfX: 0.38, halfY: 1.02, halfZ: 0.28 };
+    case "rockwraith":
+      return { centerY: 0.92, halfX: 0.34, halfY: 0.92, halfZ: 0.26 };
+    case "deer":
+    case "reindeer":
+      return { centerY: 0.6, halfX: 0.52, halfY: 0.5, halfZ: 0.22 };
+    case "goat":
+    case "sheep":
+      return { centerY: 0.58, halfX: 0.46, halfY: 0.46, halfZ: 0.24 };
+    case "jaguar":
+      return { centerY: 0.56, halfX: 0.48, halfY: 0.34, halfZ: 0.2 };
+    case "lizard":
+    case "sandstalker":
+      return { centerY: 0.4, halfX: 0.5, halfY: 0.2, halfZ: 0.18 };
+    case "parrot":
+      return { centerY: 0.7, halfX: 0.2, halfY: 0.24, halfZ: 0.18 };
+    default:
+      return { centerY: 0.7, halfX: 0.35, halfY: 0.5, halfZ: 0.24 };
+  }
+}
+
+function intersectRayAabb(origin, direction, min, max) {
+  let tmin = -Infinity;
+  let tmax = Infinity;
+
+  for (const axis of ["x", "y", "z"]) {
+    const o = origin[axis];
+    const d = direction[axis];
+    const mn = min[axis];
+    const mx = max[axis];
+
+    if (Math.abs(d) < 1e-8) {
+      if (o < mn || o > mx) return null;
+      continue;
+    }
+
+    let t1 = (mn - o) / d;
+    let t2 = (mx - o) / d;
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tmin = Math.max(tmin, t1);
+    tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return null;
+  }
+
+  if (tmax < 0) return null;
+  return tmin >= 0 ? tmin : tmax;
+}
+
 /**
  * Scans downward from the world ceiling to find the highest solid, non-water
  * block with air immediately above it. Used when placing mobs on the terrain
@@ -511,41 +566,25 @@ export class MobSystem {
    *   Hit result including whether the entity was killed, or `null` if nothing was hit.
    */
   attackFromRay(origin, direction, maxDistance, damage) {
-    const candidates = [];
-    const aliveTargets = [];
+    let best = null;
+    let bestDist = maxDistance;
+    const min = new THREE.Vector3();
+    const max = new THREE.Vector3();
+
     for (const e of this.entities.values()) {
       if (e.kind !== "mob") continue;
       if (e.health <= 0) continue;
-      candidates.push(e.mesh);
-      aliveTargets.push(e);
-    }
-    if (candidates.length === 0) return null;
-
-    this.raycaster.set(origin, direction);
-    this.raycaster.far = maxDistance;
-    const hits = this.raycaster.intersectObjects(candidates, true);
-    if (hits.length > 0) {
-      const entity = this.getEntityFromObject(hits[0].object);
-      if (!entity) return null;
-      return this.damageEntity(entity, damage);
-    }
-
-    // Fallback cone hit test so clicks still land on animated/small enemies.
-    const maxAngle = 0.4; // ~23 degrees
-    let best = null;
-    let bestDist = Infinity;
-    const toTarget = new THREE.Vector3();
-    for (const e of aliveTargets) {
-      toTarget.subVectors(e.mesh.position, origin);
-      const dist = toTarget.length();
-      if (dist > maxDistance || dist < 0.0001) continue;
-      const angle = direction.angleTo(toTarget.multiplyScalar(1 / dist));
-      if (angle > maxAngle) continue;
-      if (dist < bestDist) {
-        bestDist = dist;
+      const hitbox = getEntityHitbox(e);
+      min.set(e.mesh.position.x - hitbox.halfX, e.mesh.position.y + hitbox.centerY - hitbox.halfY, e.mesh.position.z - hitbox.halfZ);
+      max.set(e.mesh.position.x + hitbox.halfX, e.mesh.position.y + hitbox.centerY + hitbox.halfY, e.mesh.position.z + hitbox.halfZ);
+      const hitDist = intersectRayAabb(origin, direction, min, max);
+      if (hitDist === null || hitDist > maxDistance) continue;
+      if (hitDist < bestDist) {
+        bestDist = hitDist;
         best = e;
       }
     }
+
     if (!best) return null;
     return this.damageEntity(best, damage);
   }
@@ -562,30 +601,7 @@ export class MobSystem {
    * @returns {{killed: boolean, name: string, key: string}|null} Hit result, or `null` if nothing in range.
    */
   attackNearestInFront(origin, direction, maxDistance, maxAngle, damage) {
-    let best = null;
-    let bestDist = Infinity;
-    const toTarget = new THREE.Vector3();
-
-    for (const e of this.entities.values()) {
-      if (e.kind !== "mob") continue;
-      if (e.health <= 0) continue;
-
-      toTarget.subVectors(e.mesh.position, origin);
-      const dist = toTarget.length();
-      if (dist > maxDistance || dist < 0.0001) continue;
-
-      const dirToTarget = toTarget.clone().multiplyScalar(1 / dist);
-      const angle = direction.angleTo(dirToTarget);
-      if (angle > maxAngle) continue;
-
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = e;
-      }
-    }
-
-    if (!best) return null;
-    return this.damageEntity(best, damage);
+    return this.attackFromRay(origin, direction, maxDistance, damage);
   }
 
   /**
