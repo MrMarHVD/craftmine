@@ -24,6 +24,7 @@ const BLOCK_COLOR = {
   [BlockId.IRON_ORE]: [177, 126, 82],
   [BlockId.COAL_ORE]: [42, 44, 48],
   [BlockId.GOLD_ORE]: [222, 188, 62],
+  [BlockId.FURNACE]: [102, 106, 114],
 };
 
 function colorForBlock(id) {

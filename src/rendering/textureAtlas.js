@@ -51,6 +51,7 @@ const TILES = [
   "iron_ore",
   "coal_ore",
   "gold_ore",
+  "furnace",
 ];
 
 /**
@@ -259,6 +260,16 @@ function drawTile(tile) {
     ctx.fillRect(8, 4, 5, 3);
     ctx.fillRect(4, 10, 3, 3);
     ctx.fillRect(10, 10, 3, 3);
+  } else if (tile === "furnace") {
+    withNoise(ctx, [104, 106, 112], 14);
+    ctx.fillStyle = "rgba(62, 64, 70, 0.95)";
+    ctx.fillRect(2, 2, 12, 12);
+    ctx.strokeStyle = "rgba(150, 152, 158, 0.65)";
+    ctx.strokeRect(1.5, 1.5, 13, 13);
+    ctx.fillStyle = "rgba(26, 28, 32, 0.95)";
+    ctx.fillRect(4, 6, 8, 6);
+    ctx.fillStyle = "rgba(232, 142, 38, 0.95)";
+    ctx.fillRect(6, 8, 4, 2);
   }
 
   return c;

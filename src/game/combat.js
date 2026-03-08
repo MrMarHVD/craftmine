@@ -69,6 +69,14 @@ export const PLACE_BLOCK_BLACKLIST = new Set([
   BlockId.IRON_AXE,
   BlockId.IRON_PICKAXE,
   BlockId.IRON_SPADE,
+  BlockId.IRON,
+  BlockId.COAL,
+  BlockId.GOLD,
+  BlockId.FORGED_IRON,
+  BlockId.IRON_HELMET,
+  BlockId.IRON_CHESTPLATE,
+  BlockId.IRON_LEGGINGS,
+  BlockId.IRON_BOOTS,
 ]);
 
 export function isRangedWeapon(itemId) {

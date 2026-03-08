@@ -316,6 +316,61 @@ export function createIcon(blockId) {
       ctx.fillStyle = "rgba(212,216,224,0.95)";
       ctx.fillRect(8, 3, 8, 7);
       break;
+    case BlockId.IRON:
+      ctx.fillStyle = "rgba(186,128,82,0.95)";
+      ctx.fillRect(6, 6, 12, 12);
+      ctx.fillStyle = "rgba(228,178,132,0.55)";
+      ctx.fillRect(8, 8, 4, 4);
+      break;
+    case BlockId.COAL:
+      ctx.fillStyle = "rgba(40,42,48,0.95)";
+      ctx.fillRect(6, 6, 12, 12);
+      ctx.fillStyle = "rgba(86,89,98,0.4)";
+      ctx.fillRect(8, 8, 4, 4);
+      break;
+    case BlockId.GOLD:
+      ctx.fillStyle = "rgba(228,190,58,0.95)";
+      ctx.fillRect(6, 6, 12, 12);
+      ctx.fillStyle = "rgba(255,220,132,0.5)";
+      ctx.fillRect(8, 8, 4, 4);
+      break;
+    case BlockId.FORGED_IRON:
+      ctx.fillStyle = "rgba(214,219,228,0.95)";
+      ctx.fillRect(5, 7, 14, 10);
+      ctx.fillStyle = "rgba(160,170,184,0.6)";
+      ctx.fillRect(7, 9, 4, 3);
+      break;
+    case BlockId.FURNACE:
+      drawNoise(ctx, 104, 107, 112, 14);
+      ctx.fillStyle = "rgba(40,42,48,0.95)";
+      ctx.fillRect(4, 4, 16, 16);
+      ctx.fillStyle = "rgba(230,140,36,0.95)";
+      ctx.fillRect(9, 11, 6, 4);
+      break;
+    case BlockId.IRON_HELMET:
+      ctx.fillStyle = "rgba(214,219,228,0.95)";
+      ctx.fillRect(6, 6, 12, 8);
+      ctx.fillRect(8, 14, 8, 3);
+      break;
+    case BlockId.IRON_CHESTPLATE:
+      ctx.fillStyle = "rgba(214,219,228,0.95)";
+      ctx.fillRect(6, 5, 12, 12);
+      ctx.fillRect(4, 7, 4, 8);
+      ctx.fillRect(16, 7, 4, 8);
+      break;
+    case BlockId.IRON_LEGGINGS:
+      ctx.fillStyle = "rgba(214,219,228,0.95)";
+      ctx.fillRect(7, 6, 10, 6);
+      ctx.fillRect(7, 12, 3, 8);
+      ctx.fillRect(14, 12, 3, 8);
+      break;
+    case BlockId.IRON_BOOTS:
+      ctx.fillStyle = "rgba(214,219,228,0.95)";
+      ctx.fillRect(6, 10, 4, 8);
+      ctx.fillRect(14, 10, 4, 8);
+      ctx.fillRect(5, 17, 6, 3);
+      ctx.fillRect(13, 17, 6, 3);
+      break;
     case BlockId.WIZARD_GROUP_SPAWNER:
       drawNoise(ctx, 78, 60, 108, 12);
       ctx.fillStyle = "rgba(30,22,48,0.95)";

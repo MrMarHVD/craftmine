@@ -105,6 +105,24 @@ export const BlockId = {
   IRON_PICKAXE: 44,
   /** Crafted iron spade. */
   IRON_SPADE: 45,
+  /** Raw iron resource dropped from iron ore. */
+  IRON: 46,
+  /** Coal fuel resource dropped from coal ore. */
+  COAL: 47,
+  /** Raw gold resource dropped from gold ore. */
+  GOLD: 48,
+  /** Refined iron produced in a furnace. */
+  FORGED_IRON: 49,
+  /** Placeable furnace used for smelting and forging jobs. */
+  FURNACE: 50,
+  /** Wearable iron helmet. */
+  IRON_HELMET: 51,
+  /** Wearable iron chestplate. */
+  IRON_CHESTPLATE: 52,
+  /** Wearable iron leggings. */
+  IRON_LEGGINGS: 53,
+  /** Wearable iron boots. */
+  IRON_BOOTS: 54,
 };
 
 /**
@@ -346,6 +364,60 @@ export const BLOCKS = {
     transparent: true,
     textures: { all: "stone" },
   },
+  [BlockId.IRON]: {
+    name: "Iron",
+    solid: false,
+    transparent: true,
+    textures: { all: "iron_ore" },
+  },
+  [BlockId.COAL]: {
+    name: "Coal",
+    solid: false,
+    transparent: true,
+    textures: { all: "coal_ore" },
+  },
+  [BlockId.GOLD]: {
+    name: "Gold",
+    solid: false,
+    transparent: true,
+    textures: { all: "gold_ore" },
+  },
+  [BlockId.FORGED_IRON]: {
+    name: "Forged Iron",
+    solid: false,
+    transparent: true,
+    textures: { all: "iron_ore" },
+  },
+  [BlockId.FURNACE]: {
+    name: "Furnace",
+    solid: true,
+    transparent: false,
+    textures: { all: "furnace" },
+  },
+  [BlockId.IRON_HELMET]: {
+    name: "Iron Helmet",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.IRON_CHESTPLATE]: {
+    name: "Iron Chestplate",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.IRON_LEGGINGS]: {
+    name: "Iron Leggings",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
+  [BlockId.IRON_BOOTS]: {
+    name: "Iron Boots",
+    solid: false,
+    transparent: true,
+    textures: { all: "stone" },
+  },
 };
 
 /**
@@ -421,9 +493,24 @@ export function getBreakDuration(id) {
       return 1.65;
     case BlockId.GOLD_ORE:
       return 1.9;
+    case BlockId.FURNACE:
+      return 1.75;
     case BlockId.CASTLE_BRICK:
       return 1.75;
     default:
       return 0.6;
+  }
+}
+
+export function getBlockDrop(id) {
+  switch (id) {
+    case BlockId.IRON_ORE:
+      return BlockId.IRON;
+    case BlockId.COAL_ORE:
+      return BlockId.COAL;
+    case BlockId.GOLD_ORE:
+      return BlockId.GOLD;
+    default:
+      return id;
   }
 }

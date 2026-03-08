@@ -11,6 +11,8 @@
 import { BLOCKS, BlockId } from "../blocks.js";
 import { createIconMap } from "./icons.js";
 import { getRecipeLabel } from "../game/crafting.js";
+import { ARMOR_SLOT, ARMOR_SLOT_ORDER, createEmptyArmorState, getArmorIdsArray, getArmorSlotForItem } from "../game/equipment.js";
+import { getFurnaceRecipeLabel } from "../game/FurnaceSystem.js";
 
 /**
  * Returns a valid item object for a slot, normalising `null`, `undefined`, or
@@ -75,11 +77,23 @@ export class UI {
     this.hotbarEl = document.getElementById("hotbar");
     this.inventoryEl = document.getElementById("inventory");
     this.inventoryGridEl = document.getElementById("inventory-grid");
+    this.armorSlotEls = {
+      [ARMOR_SLOT.HELMET]: document.getElementById("armor-helmet"),
+      [ARMOR_SLOT.CHEST]: document.getElementById("armor-chest"),
+      [ARMOR_SLOT.LEGS]: document.getElementById("armor-legs"),
+      [ARMOR_SLOT.BOOTS]: document.getElementById("armor-boots"),
+    };
     this.craftingEl = document.getElementById("crafting");
     this.craftingListEl = document.getElementById("crafting-list");
     this.craftingDetailTitleEl = document.getElementById("crafting-detail-title");
     this.craftingDetailTextEl = document.getElementById("crafting-detail-text");
     this.craftingConfirmEl = document.getElementById("crafting-confirm");
+    this.furnaceEl = document.getElementById("furnace");
+    this.furnaceListEl = document.getElementById("furnace-list");
+    this.furnaceDetailTitleEl = document.getElementById("furnace-detail-title");
+    this.furnaceDetailTextEl = document.getElementById("furnace-detail-text");
+    this.furnaceQueueEl = document.getElementById("furnace-queue");
+    this.furnaceConfirmEl = document.getElementById("furnace-confirm");
 
     this.dialogueEl = document.getElementById("dialogue");
     this.dialogueTitleEl = document.getElementById("dialogue-title");
@@ -103,6 +117,7 @@ export class UI {
     /** Number of slots displayed in the hotbar (also the first N slots of `inventory`). */
     this.hotbarSize = 8;
     this.inventory = initialInventory.map(slotItemOrEmpty);
+    this.equippedArmor = createEmptyArmorState();
     this.hotbarIndex = 0;
     this.coins = 0;
     /** Icon map generated from all block IDs via `createIconMap`. */
@@ -112,11 +127,15 @@ export class UI {
     this.hotbarEls = [];
     /** Array of DOM node references for each inventory slot. */
     this.inventoryEls = [];
+    this.armorEls = {};
     this.craftingSelectHandler = null;
     this.craftingConfirmHandler = null;
+    this.furnaceSelectHandler = null;
+    this.furnaceConfirmHandler = null;
 
     this.buildHotbar();
     this.buildInventory();
+    this.buildArmorSlots();
     this.setHotbarSelection(0);
     this.updateCoins(0);
     this.setHint("");
@@ -183,6 +202,23 @@ export class UI {
       root.appendChild(name);
       root.appendChild(count);
 
+      root.draggable = true;
+      root.addEventListener("dragstart", (e) => {
+        const item = this.inventory[i];
+        if (!item || item.id === BlockId.AIR || item.count <= 0) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer?.setData("text/plain", JSON.stringify({ kind: "inventory", index: i }));
+      });
+      root.addEventListener("dragover", (e) => e.preventDefault());
+      root.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const payload = this.parseDragPayload(e);
+        if (!payload) return;
+        if (payload.kind === "armor") this.moveArmorToInventory(payload.slot, i);
+      });
+
       root.addEventListener("click", () => {
         const item = this.inventory[i];
         if (!item || item.id === BlockId.AIR || item.count <= 0) return;
@@ -195,6 +231,92 @@ export class UI {
     }
 
     this.refreshInventoryLabels();
+  }
+
+  buildArmorSlots() {
+    for (const slot of ARMOR_SLOT_ORDER) {
+      const root = this.armorSlotEls[slot];
+      if (!root) continue;
+      root.innerHTML = "";
+      const icon = document.createElement("div");
+      icon.className = "slot-icon";
+      const name = document.createElement("div");
+      name.className = "slot-name";
+      const count = document.createElement("div");
+      count.className = "slot-count";
+      root.appendChild(icon);
+      root.appendChild(name);
+      root.appendChild(count);
+      root.draggable = true;
+      root.addEventListener("dragstart", (e) => {
+        const itemId = this.equippedArmor[slot];
+        if (!itemId || itemId === BlockId.AIR) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer?.setData("text/plain", JSON.stringify({ kind: "armor", slot }));
+      });
+      root.addEventListener("dragover", (e) => e.preventDefault());
+      root.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const payload = this.parseDragPayload(e);
+        if (!payload) return;
+        if (payload.kind === "inventory") this.moveInventoryItemToArmor(payload.index, slot);
+      });
+      root.addEventListener("click", () => this.moveArmorToInventory(slot));
+      this.armorEls[slot] = { root, icon, name, count };
+    }
+    this.refreshArmorLabels();
+  }
+
+  parseDragPayload(e) {
+    try {
+      return JSON.parse(e.dataTransfer?.getData("text/plain") ?? "");
+    } catch {
+      return null;
+    }
+  }
+
+  canAcceptInventoryDrop(index, itemId) {
+    const slot = this.inventory[index];
+    return !!slot && (slot.id === BlockId.AIR || slot.count <= 0 || slot.id === itemId);
+  }
+
+  moveArmorToInventory(slot, inventoryIndex = -1) {
+    const itemId = this.equippedArmor[slot];
+    if (!itemId || itemId === BlockId.AIR) return false;
+    if (inventoryIndex >= 0) {
+      if (!this.canAcceptInventoryDrop(inventoryIndex, itemId)) return false;
+      const target = this.inventory[inventoryIndex];
+      if (target.id === BlockId.AIR || target.count <= 0) {
+        target.id = itemId;
+        target.count = 1;
+      } else {
+        target.count += 1;
+      }
+    } else {
+      this.addItem(itemId, 1);
+    }
+    this.equippedArmor[slot] = BlockId.AIR;
+    this.refreshInventoryLabels();
+    this.refreshArmorLabels();
+    return true;
+  }
+
+  moveInventoryItemToArmor(index, slot) {
+    const item = this.inventory[index];
+    if (!item || item.id === BlockId.AIR || item.count <= 0) return false;
+    if (getArmorSlotForItem(item.id) !== slot) return false;
+    if (this.equippedArmor[slot] !== BlockId.AIR) return false;
+    this.equippedArmor[slot] = item.id;
+    item.count -= 1;
+    if (item.count <= 0) {
+      item.id = BlockId.AIR;
+      item.count = 0;
+    }
+    this.refreshInventoryLabels();
+    this.refreshArmorLabels();
+    return true;
   }
 
   /**
@@ -327,6 +449,10 @@ export class UI {
     return this.craftingEl.classList.contains("visible");
   }
 
+  isFurnaceOpen() {
+    return this.furnaceEl.classList.contains("visible");
+  }
+
   /**
    * Shows or hides the inventory overlay and refreshes slot labels.
    * @param {boolean} visible - `true` to show, `false` to hide.
@@ -334,6 +460,7 @@ export class UI {
   setInventoryVisible(visible) {
     this.inventoryEl.classList.toggle("visible", visible);
     this.refreshInventoryLabels();
+    this.refreshArmorLabels();
   }
 
   /**
@@ -342,6 +469,10 @@ export class UI {
    */
   setCraftingVisible(visible) {
     this.craftingEl.classList.toggle("visible", visible);
+  }
+
+  setFurnaceVisible(visible) {
+    this.furnaceEl.classList.toggle("visible", visible);
   }
 
   /**
@@ -393,6 +524,41 @@ export class UI {
       .join("\n");
     this.craftingConfirmEl.disabled = false;
     this.craftingConfirmEl.onclick = () => this.craftingConfirmHandler?.();
+  }
+
+  renderFurnacePanel(recipes, selectedRecipeId, detailText, queueLines, onSelect, onConfirm, queueableRecipes = recipes) {
+    this.furnaceSelectHandler = onSelect;
+    this.furnaceConfirmHandler = onConfirm;
+    this.furnaceListEl.innerHTML = "";
+
+    for (const recipe of recipes) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "crafting-recipe";
+      if (recipe.id === selectedRecipeId) btn.classList.add("active");
+      if (!queueableRecipes.some((r) => r.id === recipe.id)) btn.style.opacity = "0.6";
+
+      const name = document.createElement("div");
+      name.className = "crafting-recipe-name";
+      name.textContent = getFurnaceRecipeLabel(recipe);
+
+      const cost = document.createElement("div");
+      cost.className = "crafting-recipe-cost";
+      cost.textContent = `${BLOCKS[recipe.inputId].name} x${recipe.inputCount} | ${BLOCKS[recipe.fuelId].name} x${recipe.fuelCount} | ${recipe.duration}s`;
+
+      btn.appendChild(name);
+      btn.appendChild(cost);
+      btn.addEventListener("click", () => this.furnaceSelectHandler?.(recipe.id));
+      this.furnaceListEl.appendChild(btn);
+    }
+
+    const selected = recipes.find((recipe) => recipe.id === selectedRecipeId) ?? null;
+    this.furnaceDetailTitleEl.textContent = selected ? getFurnaceRecipeLabel(selected) : "Select a furnace job";
+    this.furnaceDetailTextEl.textContent = detailText;
+    this.furnaceQueueEl.textContent = queueLines.length > 0 ? `Queue\n${queueLines.join("\n")}` : "Queue\nEmpty";
+    const canQueue = !!selected && queueableRecipes.some((recipe) => recipe.id === selected.id);
+    this.furnaceConfirmEl.disabled = !canQueue;
+    this.furnaceConfirmEl.onclick = canQueue ? () => this.furnaceConfirmHandler?.() : null;
   }
 
   /**
@@ -482,6 +648,10 @@ export class UI {
     const item = this.inventory[this.hotbarIndex];
     if (!item || item.count <= 0) return BlockId.AIR;
     return item.id ?? BlockId.AIR;
+  }
+
+  getEquippedArmorIds() {
+    return getArmorIdsArray(this.equippedArmor);
   }
 
   /**
@@ -650,7 +820,20 @@ export class UI {
    */
   refreshInventoryLabels() {
     for (let i = 0; i < this.inventoryEls.length; i++) {
-      setSlotVisual(this.inventoryEls[i], slotItemOrEmpty(this.inventory[i]), this.icons);
+      const node = this.inventoryEls[i];
+      const item = slotItemOrEmpty(this.inventory[i]);
+      setSlotVisual(node, item, this.icons);
+      node.root.draggable = item.id !== BlockId.AIR && item.count > 0;
+    }
+  }
+
+  refreshArmorLabels() {
+    for (const slot of ARMOR_SLOT_ORDER) {
+      const node = this.armorEls[slot];
+      if (!node) continue;
+      const itemId = this.equippedArmor[slot] ?? BlockId.AIR;
+      setSlotVisual(node, itemId === BlockId.AIR ? null : { id: itemId, count: 1 }, this.icons);
+      node.root.draggable = itemId !== BlockId.AIR;
     }
   }
 }

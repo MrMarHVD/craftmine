@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { buildHumanoid } from "../mobs/models.js";
+import { armorStateFromArray } from "../game/equipment.js";
+import { attachArmorVisuals } from "../rendering/armorVisuals.js";
 import { updateHeldItemAnchor } from "../rendering/heldItems.js";
 
 function makeRemoteModel() {
@@ -34,6 +36,7 @@ export class RemotePlayers {
       targetZ: initial?.z ?? 0,
       yaw: initial?.yaw ?? 0,
       heldItemId: initial?.heldItemId ?? 0,
+      armorIds: initial?.armorIds ?? [0, 0, 0, 0],
       animPhase: Math.random() * Math.PI * 2,
       speed2D: 0,
     };
@@ -42,6 +45,7 @@ export class RemotePlayers {
     p.heldAnchor.rotation.set(0.08, 0.04, -0.08);
     (rig.arms[1] ?? p.mesh).add(p.heldAnchor);
     updateHeldItemAnchor(p.heldAnchor, p.heldItemId, 1);
+    attachArmorVisuals(p, armorStateFromArray(p.armorIds));
     p.nameSprite = this.createNameSprite(p.name);
     p.nameSprite.position.set(0, 2.05, 0);
     p.mesh.add(p.nameSprite);
@@ -130,7 +134,9 @@ export class RemotePlayers {
       p.targetZ = pl.z;
       p.yaw = pl.yaw ?? p.yaw;
       p.heldItemId = pl.heldItemId ?? 0;
+      p.armorIds = pl.armorIds ?? p.armorIds;
       updateHeldItemAnchor(p.heldAnchor, p.heldItemId, 1);
+      attachArmorVisuals(p, armorStateFromArray(p.armorIds));
     }
 
     for (const id of this.players.keys()) {

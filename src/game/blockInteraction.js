@@ -11,7 +11,7 @@
  */
 
 import * as THREE from "three";
-import { BlockId, getBreakDuration, isBreakable } from "../blocks.js";
+import { BlockId, getBlockDrop, getBreakDuration, isBreakable } from "../blocks.js";
 import { canMineBlockWithItem, getToolBreakMultiplier } from "./crafting.js";
 
 /**
@@ -224,7 +224,7 @@ export function updateBreakMining(
   if (state.breakState.progress >= 1) {
     const { x, y, z, id } = state.breakState;
     world.setBlock(x, y, z, BlockId.AIR);
-    ui.addItem(id, 1);
+    ui.addItem(getBlockDrop(id), 1);
     if (onBlockBroken) onBlockBroken(x, y, z, id);
     state.breakState = null;
     crackOverlay.visible = false;

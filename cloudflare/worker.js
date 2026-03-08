@@ -84,6 +84,7 @@ export class WorldRoom {
       pitch: 0,
       flyMode: false,
       heldItemId: 0,
+      armorIds: [0, 0, 0, 0],
       t: Date.now(),
     };
 
@@ -137,6 +138,10 @@ export class WorldRoom {
       player.pitch = Number.isFinite(msg.pitch) ? clamp(msg.pitch, -1.56, 1.56) : player.pitch;
       player.flyMode = !!msg.flyMode;
       player.heldItemId = Number.isFinite(msg.heldItemId) ? clamp(Math.floor(msg.heldItemId), 0, 255) : player.heldItemId;
+      if (Array.isArray(msg.armorIds)) {
+        player.armorIds = msg.armorIds.slice(0, 4).map((id) => (Number.isFinite(id) ? clamp(Math.floor(id), 0, 255) : 0));
+        while (player.armorIds.length < 4) player.armorIds.push(0);
+      }
       player.t = Date.now();
       return;
     }

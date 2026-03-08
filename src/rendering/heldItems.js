@@ -28,6 +28,15 @@ const BLOCK_COLOR_BY_ID = {
   [BlockId.IRON_ORE]: 0xb9855b,
   [BlockId.COAL_ORE]: 0x2f3034,
   [BlockId.GOLD_ORE]: 0xdab63d,
+  [BlockId.IRON]: 0xbd7f57,
+  [BlockId.COAL]: 0x323438,
+  [BlockId.GOLD]: 0xe0bb4a,
+  [BlockId.FORGED_IRON]: 0xd9dde4,
+  [BlockId.FURNACE]: 0x70747c,
+  [BlockId.IRON_HELMET]: 0xd9dde4,
+  [BlockId.IRON_CHESTPLATE]: 0xd9dde4,
+  [BlockId.IRON_LEGGINGS]: 0xd9dde4,
+  [BlockId.IRON_BOOTS]: 0xd9dde4,
 };
 
 function makeMaterial(color, emissive = 0x000000) {

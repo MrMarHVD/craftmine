@@ -90,7 +90,7 @@ export const CRAFTING_RECIPES = [
     outputId: BlockId.IRON_SWORD,
     outputCount: 1,
     ingredients: [
-      { id: BlockId.IRON_ORE, count: 2 },
+      { id: BlockId.IRON, count: 2 },
       { id: BlockId.STICK, count: 1 },
     ],
   },
@@ -99,7 +99,7 @@ export const CRAFTING_RECIPES = [
     outputId: BlockId.IRON_AXE,
     outputCount: 1,
     ingredients: [
-      { id: BlockId.IRON_ORE, count: 3 },
+      { id: BlockId.IRON, count: 3 },
       { id: BlockId.STICK, count: 2 },
     ],
   },
@@ -108,7 +108,7 @@ export const CRAFTING_RECIPES = [
     outputId: BlockId.IRON_PICKAXE,
     outputCount: 1,
     ingredients: [
-      { id: BlockId.IRON_ORE, count: 3 },
+      { id: BlockId.IRON, count: 3 },
       { id: BlockId.STICK, count: 2 },
     ],
   },
@@ -117,13 +117,56 @@ export const CRAFTING_RECIPES = [
     outputId: BlockId.IRON_SPADE,
     outputCount: 1,
     ingredients: [
-      { id: BlockId.IRON_ORE, count: 1 },
+      { id: BlockId.IRON, count: 1 },
       { id: BlockId.STICK, count: 2 },
     ],
+  },
+  {
+    id: "furnace",
+    outputId: BlockId.FURNACE,
+    outputCount: 1,
+    ingredients: [{ id: BlockId.IRON, count: 30 }],
+  },
+  {
+    id: "iron_helmet",
+    outputId: BlockId.IRON_HELMET,
+    outputCount: 1,
+    ingredients: [{ id: BlockId.FORGED_IRON, count: 5 }],
+  },
+  {
+    id: "iron_chestplate",
+    outputId: BlockId.IRON_CHESTPLATE,
+    outputCount: 1,
+    ingredients: [{ id: BlockId.FORGED_IRON, count: 5 }],
+  },
+  {
+    id: "iron_leggings",
+    outputId: BlockId.IRON_LEGGINGS,
+    outputCount: 1,
+    ingredients: [{ id: BlockId.FORGED_IRON, count: 5 }],
+  },
+  {
+    id: "iron_boots",
+    outputId: BlockId.IRON_BOOTS,
+    outputCount: 1,
+    ingredients: [{ id: BlockId.FORGED_IRON, count: 5 }],
   },
 ];
 
 const RECIPE_BY_ID = new Map(CRAFTING_RECIPES.map((recipe) => [recipe.id, recipe]));
+
+function getEquivalentIngredientIds(itemId) {
+  switch (itemId) {
+    case BlockId.IRON:
+      return [BlockId.IRON, BlockId.IRON_ORE];
+    case BlockId.COAL:
+      return [BlockId.COAL, BlockId.COAL_ORE];
+    case BlockId.GOLD:
+      return [BlockId.GOLD, BlockId.GOLD_ORE];
+    default:
+      return [itemId];
+  }
+}
 
 export function getRecipeLabel(recipe) {
   return `${BLOCKS[recipe.outputId]?.name ?? recipe.id} x${recipe.outputCount}`;
@@ -133,9 +176,26 @@ export function getRecipeById(recipeId) {
   return RECIPE_BY_ID.get(recipeId) ?? null;
 }
 
+export function getIngredientCount(ui, itemId) {
+  return getEquivalentIngredientIds(itemId).reduce((sum, id) => sum + ui.getItemCount(id), 0);
+}
+
+export function consumeIngredient(ui, itemId, amount) {
+  let remaining = amount;
+  for (const id of getEquivalentIngredientIds(itemId)) {
+    if (remaining <= 0) break;
+    const available = ui.getItemCount(id);
+    if (available <= 0) continue;
+    const take = Math.min(available, remaining);
+    if (!ui.consumeItem(id, take)) return false;
+    remaining -= take;
+  }
+  return remaining <= 0;
+}
+
 export function canCraftRecipe(ui, recipe) {
   if (!recipe) return false;
-  return recipe.ingredients.every((ingredient) => ui.getItemCount(ingredient.id) >= ingredient.count);
+  return recipe.ingredients.every((ingredient) => getIngredientCount(ui, ingredient.id) >= ingredient.count);
 }
 
 export function getCraftableRecipes(ui) {
@@ -146,7 +206,7 @@ export function craftRecipe(ui, recipeId) {
   const recipe = getRecipeById(recipeId);
   if (!recipe || !canCraftRecipe(ui, recipe)) return false;
   for (const ingredient of recipe.ingredients) {
-    if (!ui.consumeItem(ingredient.id, ingredient.count)) return false;
+    if (!consumeIngredient(ui, ingredient.id, ingredient.count)) return false;
   }
   ui.addItem(recipe.outputId, recipe.outputCount);
   return true;

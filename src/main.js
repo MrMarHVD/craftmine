@@ -49,6 +49,8 @@ import {
   updateBreakMining,
 } from "./game/blockInteraction.js";
 import { craftRecipe, getCraftableRecipes } from "./game/crafting.js";
+import { getArmorHealthMultiplier } from "./game/equipment.js";
+import { FurnaceSystem } from "./game/FurnaceSystem.js";
 
 /** Maximum player health points. */
 const MAX_HEALTH = 100;
@@ -81,6 +83,7 @@ ui.addItem(BlockId.ARROW, 10);
 const terrainMapCanvas = document.getElementById("terrain-map");
 const terrainMap = new TerrainMapRenderer(terrainMapCanvas);
 const quests = new QuestSystem(ui, worldSeed + 191);
+const furnaces = new FurnaceSystem(ui, { onCoins: (amount) => quests.addCoins(amount) });
 const mobs = new MobSystem(scene, world, {
   onEnemyKilled: (payload) => {
     if (!payload?.dropItem) return;
@@ -148,6 +151,9 @@ function startMultiplayerSession(playerName) {
       remotePlayers.applySnapshot(msg.players ?? []);
     },
     onBlockSet: (msg) => {
+      if (world.getBlock(msg.x, msg.y, msg.z) === BlockId.FURNACE && msg.id === BlockId.AIR) {
+        furnaces.removeFurnace(msg.x, msg.y, msg.z);
+      }
       world.setBlock(msg.x, msg.y, msg.z, msg.id);
     },
   });
@@ -199,7 +205,7 @@ ui.setupDebugPane(debugSettings, (patch) => {
   if (patch.bgmVolume !== undefined) debugSettings.bgmVolume = Math.max(0, Math.min(1, patch.bgmVolume));
   if (patch.healthEnabled !== undefined) {
     debugSettings.healthEnabled = patch.healthEnabled;
-    if (!debugSettings.healthEnabled) health = MAX_HEALTH;
+    if (!debugSettings.healthEnabled) health = getMaxHealth();
   }
   if (patch.agroEnabled !== undefined) debugSettings.agroEnabled = patch.agroEnabled;
 
@@ -250,7 +256,7 @@ let spawnPoint = new THREE.Vector3(0, 40, 0);
  * @returns {boolean}
  */
 function isMenuOpen() {
-  return ui.isInventoryOpen() || ui.isCraftingOpen() || ui.isDialogueOpen() || ui.isDebugOpen() || !sessionStarted;
+  return ui.isInventoryOpen() || ui.isCraftingOpen() || ui.isFurnaceOpen() || ui.isDialogueOpen() || ui.isDebugOpen() || !sessionStarted;
 }
 
 /**
@@ -280,6 +286,10 @@ function refreshCraftingPanel() {
       refreshCraftingPanel();
     }
   );
+}
+
+function getMaxHealth() {
+  return MAX_HEALTH * getArmorHealthMultiplier(ui.equippedArmor);
 }
 
 function openAmbientDialogue(npc) {
@@ -425,7 +435,7 @@ window.addEventListener("keydown", (e) => {
     const next = !ui.isDebugOpen();
     ui.setDebugVisible(next);
     if (next) document.exitPointerLock();
-    else if (!ui.isInventoryOpen() && !ui.isDialogueOpen()) canvas.requestPointerLock();
+    else if (!ui.isInventoryOpen() && !ui.isDialogueOpen() && !ui.isCraftingOpen() && !ui.isFurnaceOpen()) canvas.requestPointerLock();
     refreshOverlayVisibility();
     return;
   }
@@ -435,8 +445,9 @@ window.addEventListener("keydown", (e) => {
 
     if (ui.isInventoryOpen()) {
       ui.setInventoryVisible(false);
-      if (!ui.isDebugOpen() && !ui.isCraftingOpen()) canvas.requestPointerLock();
+      if (!ui.isDebugOpen() && !ui.isCraftingOpen() && !ui.isFurnaceOpen()) canvas.requestPointerLock();
     } else {
+      furnaces.close();
       ui.setCraftingVisible(false);
       ui.setInventoryVisible(true);
       document.exitPointerLock();
@@ -449,8 +460,9 @@ window.addEventListener("keydown", (e) => {
     if (ui.isDialogueOpen()) return;
     if (ui.isCraftingOpen()) {
       ui.setCraftingVisible(false);
-      if (!ui.isInventoryOpen() && !ui.isDebugOpen()) canvas.requestPointerLock();
+      if (!ui.isInventoryOpen() && !ui.isDebugOpen() && !ui.isFurnaceOpen()) canvas.requestPointerLock();
     } else {
+      furnaces.close();
       ui.setInventoryVisible(false);
       ui.setCraftingVisible(true);
       selectedCraftRecipeId = null;
@@ -462,16 +474,23 @@ window.addEventListener("keydown", (e) => {
   }
 
   if (e.code === "KeyH") {
+    const maxHealth = getMaxHealth();
     if (!debugSettings.healthEnabled) return;
-    if (health >= MAX_HEALTH) return;
+    if (health >= maxHealth) return;
     if (ui.consumeItem(BlockId.APPLE, 1)) {
-      health = Math.min(MAX_HEALTH, health + 25);
+      health = Math.min(maxHealth, health + 25);
     }
     return;
   }
 
   if (e.code === "KeyF") {
     if (ui.isDialogueOpen()) return;
+    if (currentTarget?.id === BlockId.FURNACE) {
+      document.exitPointerLock();
+      furnaces.openAt(currentTarget.x, currentTarget.y, currentTarget.z);
+      refreshOverlayVisibility();
+      return;
+    }
     if (nearestTalker) {
       document.exitPointerLock();
       if (nearestTalker.questgiver) quests.onTalkToQuestGiver(nearestTalker);
@@ -591,7 +610,9 @@ function tick(now) {
   prevTime = now;
   const syncedTimeSec = (Date.now() + serverTimeOffsetMs) / 1000;
   const heldItemId = ui.getSelectedItemId();
+  const maxHealth = getMaxHealth();
   attackCooldown = Math.max(0, attackCooldown - dt);
+  health = Math.min(health, maxHealth);
   const daylight = updateDayNight(syncedTimeSec);
   clouds.update(player.position, dt, syncedTimeSec, daylight);
   localHeldItemView.setItem(heldItemId);
@@ -609,6 +630,7 @@ function tick(now) {
     pitch: player.pitch,
     flyMode: player.flyMode,
     heldItemId,
+    armorIds: ui.getEquippedArmorIds(),
   });
 
   chunkTick += dt;
@@ -619,6 +641,7 @@ function tick(now) {
 
   world.rebuildOneChunk();
   world.rebuildOneChunk();
+  furnaces.update(dt);
   mobs.update(player.position, dt, syncedTimeSec, debugSettings.agroEnabled, projectiles, player.velocity);
   projectiles.update(dt, player);
 
@@ -633,13 +656,13 @@ function tick(now) {
     }
 
     if (health <= 0) {
-      health = MAX_HEALTH;
+      health = maxHealth;
       player.position.copy(spawnPoint);
       player.velocity.set(0, 0, 0);
       player.syncCamera();
     }
   } else {
-    health = MAX_HEALTH;
+    health = maxHealth;
   }
 
   nearestTalker = mobs.getNearestTalker(player.position, 4.2);
@@ -658,7 +681,10 @@ function tick(now) {
     crackTextures,
     isMenuOpen,
     heldItemId,
-    (x, y, z) => net?.sendBlockSet(x, y, z, BlockId.AIR)
+    (x, y, z, id) => {
+      if (id === BlockId.FURNACE) furnaces.removeFurnace(x, y, z);
+      net?.sendBlockSet(x, y, z, BlockId.AIR);
+    }
   );
   if (currentTarget && !isMenuOpen()) {
     targetBox.visible = true;
@@ -670,17 +696,20 @@ function tick(now) {
   let hint = quests.getActiveQuestText();
   const netHint = netStatus === "connected" ? "MP: Online" : "MP: Offline";
   hint = hint ? `${hint} | ${netHint}` : netHint;
-  if (nearestTalker && !ui.isInventoryOpen()) {
+  if (currentTarget?.id === BlockId.FURNACE && !ui.isInventoryOpen()) {
+    const furnaceHint = "Press F to use Furnace";
+    hint = hint ? `${hint} | ${furnaceHint}` : furnaceHint;
+  } else if (nearestTalker && !ui.isInventoryOpen()) {
     const talkHint = `Press F to talk to ${nearestTalker.name}`;
     hint = hint ? `${hint} | ${talkHint}` : talkHint;
   }
 
-  if (ui.getItemCount(BlockId.APPLE) > 0 && debugSettings.healthEnabled && health < MAX_HEALTH) {
+  if (ui.getItemCount(BlockId.APPLE) > 0 && debugSettings.healthEnabled && health < maxHealth) {
     hint = hint ? `${hint} | Press H to eat Apple` : "Press H to eat Apple";
   }
 
   ui.setHint(hint);
-  ui.updateHealth(health, MAX_HEALTH, debugSettings.healthEnabled);
+  ui.updateHealth(health, maxHealth, debugSettings.healthEnabled);
 
   ui.updateMode(player.flyMode);
   ui.updateCoords(player.position);

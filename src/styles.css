@@ -363,6 +363,55 @@ body {
   gap: 7px;
 }
 
+#inventory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px;
+  gap: 12px;
+}
+
+#armor-panel {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px;
+}
+
+#armor-title {
+  font-size: 14px;
+  color: #f5f7fa;
+  margin-bottom: 8px;
+}
+
+#armor-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.armor-slot-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.armor-label {
+  font-size: 12px;
+  color: #bdd0e0;
+}
+
+.armor-slot {
+  height: 72px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr auto auto;
+  align-items: center;
+  padding: 4px;
+  text-align: center;
+  color: #d8e1ea;
+  cursor: pointer;
+}
+
 .inv-slot {
   height: 70px;
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -383,6 +432,98 @@ body {
   border-color: #ffde8a;
   color: #fff5c4;
   box-shadow: 0 0 8px rgba(255, 222, 138, 0.45);
+}
+
+.armor-slot.active {
+  border-color: #ffde8a;
+  color: #fff5c4;
+  box-shadow: 0 0 8px rgba(255, 222, 138, 0.45);
+}
+
+#furnace {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(760px, 94vw);
+  background: rgba(12, 18, 24, 0.92);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  display: none;
+  pointer-events: auto;
+}
+
+#furnace.visible {
+  display: block;
+}
+
+#furnace-title {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #f5f7fa;
+}
+
+#furnace-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(240px, 0.95fr);
+  gap: 10px;
+}
+
+#furnace-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+#furnace-detail {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#furnace-detail-title {
+  font-size: 15px;
+  color: #f4f8fd;
+}
+
+#furnace-detail-text {
+  font-size: 13px;
+  color: #c5d2de;
+  white-space: pre-line;
+  min-height: 82px;
+}
+
+#furnace-queue {
+  font-size: 12px;
+  color: #b8c8d8;
+  white-space: pre-line;
+  min-height: 80px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+#furnace-confirm {
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 221, 130, 0.92);
+  color: #1e1204;
+  padding: 9px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#furnace-confirm:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 #dialogue {
@@ -507,11 +648,24 @@ body {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
+  #inventory-layout {
+    grid-template-columns: 1fr;
+  }
+
   #crafting-body {
     grid-template-columns: 1fr;
   }
 
   #crafting-list {
+    grid-template-columns: 1fr;
+    max-height: 220px;
+  }
+
+  #furnace-body {
+    grid-template-columns: 1fr;
+  }
+
+  #furnace-list {
     grid-template-columns: 1fr;
     max-height: 220px;
   }

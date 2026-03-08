@@ -49,11 +49,11 @@ export function addEyes(parent, y, z, color = 0x1b1b1b, spacing = 0.12) {
  * `MobSystem.animateEntity` to drive leg-swing, wing-flap, and tail-sway
  * animations each frame.
  * @param {string} type - Descriptive type string (e.g. `"quadruped"`, `"humanoid"`).
- * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh|null, head: THREE.Mesh|null}}
+ * @returns {{type: string, legs: THREE.Mesh[], arms: THREE.Mesh[], wings: THREE.Mesh[], tail: THREE.Mesh|null, head: THREE.Mesh|null, torso: THREE.Mesh|null}}
  *   An empty rig ready to be populated by a builder.
  */
 export function createRig(type) {
-  return { type, legs: [], arms: [], wings: [], tail: null, head: null };
+  return { type, legs: [], arms: [], wings: [], tail: null, head: null, torso: null };
 }
 
 /**
@@ -67,7 +67,7 @@ export function createRig(type) {
  */
 export function buildQuestGiver(root) {
   const rig = createRig("humanoid");
-  addPart(root, [0.6, 0.92, 0.34], [0, 0.46, 0], 0x3c6fa1);
+  rig.torso = addPart(root, [0.6, 0.92, 0.34], [0, 0.46, 0], 0x3c6fa1);
   rig.head = addPart(root, [0.52, 0.5, 0.36], [0, 1.17, 0], 0xdfc2a1);
   rig.legs.push(addPart(root, [0.18, 0.56, 0.2], [-0.2, 0.24, 0], 0x2d3b53));
   rig.legs.push(addPart(root, [0.18, 0.56, 0.2], [0.2, 0.24, 0], 0x2d3b53));
@@ -205,7 +205,7 @@ export function buildReindeer(root) {
  */
 export function buildHumanoid(root, bodyColor, skinColor, hostileStyle = false) {
   const rig = createRig("humanoid");
-  addPart(root, [0.56, 0.88, 0.32], [0, 0.46, 0], bodyColor);
+  rig.torso = addPart(root, [0.56, 0.88, 0.32], [0, 0.46, 0], bodyColor);
   rig.head = addPart(root, [0.44, 0.48, 0.32], [0, 1.14, 0], skinColor);
   rig.legs.push(addPart(root, [0.16, 0.56, 0.16], [-0.18, 0.22, 0], 0x30261f));
   rig.legs.push(addPart(root, [0.16, 0.56, 0.16], [0.18, 0.22, 0], 0x30261f));
@@ -331,7 +331,7 @@ export function buildSkeleton(root) {
  */
 export function buildWizard(root) {
   const rig = createRig("humanoid");
-  addPart(root, [0.62, 0.94, 0.38], [0, 0.48, 0], 0x5a3d8c);
+  rig.torso = addPart(root, [0.62, 0.94, 0.38], [0, 0.48, 0], 0x5a3d8c);
   addPart(root, [0.42, 0.22, 0.28], [0, 0.08, 0], 0x37264f);
   rig.head = addPart(root, [0.44, 0.46, 0.34], [0, 1.18, 0], 0xd8c0a1);
   rig.legs.push(addPart(root, [0.16, 0.5, 0.16], [-0.17, 0.24, 0], 0x2c1f42));
@@ -356,7 +356,7 @@ export function buildVillager(root) {
 
 export function buildGuard(root) {
   const rig = createRig("humanoid");
-  addPart(root, [0.58, 0.88, 0.34], [0, 0.46, 0], 0x7d8794);
+  rig.torso = addPart(root, [0.58, 0.88, 0.34], [0, 0.46, 0], 0x7d8794);
   rig.head = addPart(root, [0.44, 0.46, 0.32], [0, 1.14, 0], 0xd3b08e);
   rig.legs.push(addPart(root, [0.16, 0.56, 0.16], [-0.18, 0.22, 0], 0x414853));
   rig.legs.push(addPart(root, [0.16, 0.56, 0.16], [0.18, 0.22, 0], 0x414853));

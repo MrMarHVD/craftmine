@@ -40,6 +40,12 @@ export class QuestSystem {
     this.ui.updateCoins(this.coins);
   }
 
+  addCoins(amount) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    this.coins += amount;
+    this.ui.updateCoins(this.coins);
+  }
+
   /**
    * Returns whether the dialogue pane is currently open (delegates to the UI).
    * Used by `main.js` to prevent pointer lock from being re-acquired while a
@@ -174,8 +180,7 @@ export class QuestSystem {
                 return;
               }
 
-              this.coins += q.reward;
-              this.ui.updateCoins(this.coins);
+              this.addCoins(q.reward);
               this.activeQuest = null;
 
               this.ui.openDialogue(

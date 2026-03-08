@@ -37,7 +37,30 @@
       <div id="hotbar"></div>
       <div id="inventory">
         <div id="inventory-title">Inventory (30 slots) - click a slot to map to active hotbar index</div>
-        <div id="inventory-grid"></div>
+        <div id="inventory-layout">
+          <div id="inventory-grid"></div>
+          <div id="armor-panel">
+            <div id="armor-title">Equipment</div>
+            <div id="armor-grid">
+              <div class="armor-slot-wrap">
+                <div class="armor-label">Helmet</div>
+                <button id="armor-helmet" class="armor-slot" type="button"></button>
+              </div>
+              <div class="armor-slot-wrap">
+                <div class="armor-label">Chest</div>
+                <button id="armor-chest" class="armor-slot" type="button"></button>
+              </div>
+              <div class="armor-slot-wrap">
+                <div class="armor-label">Legs</div>
+                <button id="armor-legs" class="armor-slot" type="button"></button>
+              </div>
+              <div class="armor-slot-wrap">
+                <div class="armor-label">Boots</div>
+                <button id="armor-boots" class="armor-slot" type="button"></button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="crafting">
         <div id="crafting-title">Crafting</div>
@@ -47,6 +70,18 @@
             <div id="crafting-detail-title">Select a recipe</div>
             <div id="crafting-detail-text">Only recipes you can currently afford are shown here.</div>
             <button id="crafting-confirm" type="button">Craft</button>
+          </div>
+        </div>
+      </div>
+      <div id="furnace">
+        <div id="furnace-title">Furnace</div>
+        <div id="furnace-body">
+          <div id="furnace-list"></div>
+          <div id="furnace-detail">
+            <div id="furnace-detail-title">Select a furnace job</div>
+            <div id="furnace-detail-text">Add coal-fueled jobs to the queue.</div>
+            <div id="furnace-queue"></div>
+            <button id="furnace-confirm" type="button">Queue Job</button>
           </div>
         </div>
       </div>

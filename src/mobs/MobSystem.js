@@ -15,6 +15,8 @@ import { floorDiv, hash2D } from "../utils/random.js";
 import { BIOME, BIOME_NAME } from "../world.js";
 import { WORLD_SPAWN_CONFIG } from "../world/spawnConfig.js";
 import { FACTION, areFactionsHostile } from "./factions.js";
+import { armorStateFromArray } from "../game/equipment.js";
+import { attachArmorVisuals } from "../rendering/armorVisuals.js";
 import { updateHeldItemAnchor } from "../rendering/heldItems.js";
 import { solveBallisticVelocity, SKELETON_ARROW_SPEED } from "../game/projectiles.js";
 import { createMobModel } from "./models.js";
@@ -381,6 +383,10 @@ export class MobSystem {
         modelYawOffset: getModelYawOffset(npc.key, rig?.type, false),
       };
       if (npc.key === "guard") this.attachHeldItem(entity, BlockId.IRON_SWORD, 1);
+      if (npc.key === "guard") {
+        entity.armorIds = [BlockId.IRON_HELMET, BlockId.IRON_CHESTPLATE, BlockId.IRON_LEGGINGS, BlockId.IRON_BOOTS];
+        attachArmorVisuals(entity, armorStateFromArray(entity.armorIds));
+      }
       this.entities.set(id, entity);
       this.attachEntityMesh(entity);
       created.push(id);
